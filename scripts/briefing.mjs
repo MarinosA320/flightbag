@@ -30,17 +30,14 @@ const write=(f,o)=>fs.writeFileSync(path.join(OUT,f),JSON.stringify(o));
       out.source=j.source||out.source;Object.assign(out.notams,j.notams||{});Object.assign(out.errors,j.errors||{})}
     catch(e){c.forEach(id=>out.errors[id]=String(e.message||e))}}
   write('notam.json',out);console.log('NOTAM',Object.values(out.notams).reduce((s,l)=>s+l.length,0),'errors',out.errors)}
-/* Keep a copy of the HNMS pages for troubleshooting the chart extraction */
-for(const [k,u] of Object.entries({swc:'http://oldportal.emy.gr/emy/en/aviation/aeronaftilia_xartes_simantikou_kairou',wind:'http://oldportal.emy.gr/emy/en/aviation/aeronaftilia_xartes_anemou_anoteris',pressure:'http://oldportal.emy.gr/emy/en/navigation/naftilia_xartes_radiofacsimile'}))
-  try{const r=await fetch(u,{headers:{'User-Agent':'Mozilla/5.0 DA40D-FlightBag'}});fs.writeFileSync(path.join(OUT,'emy',k+'.page.txt'),await r.text())}catch(e){}
 /* HNMS (EMY) charts: images are downloaded so the app never needs the http-only site */
 {const out={fetched:now(),sets:{}};
   for(const set of ['swc','wind','pressure']){const s=out.sets[set]={charts:[]};
     try{const j=await call(emyFn,'https://x/api/wx/emy?set='+set);if(j.error)throw new Error(j.error);s.page=j.page;
       let i=0;for(const c of j.charts.filter(c=>!c.pdf).slice(0,8)){try{const r=await fetch(c.url,{headers:{'User-Agent':'Mozilla/5.0 DA40D-FlightBag'}});
-          const ct=r.headers.get('content-type')||'';if(!r.ok||!/^image\//.test(ct))continue;
-          const ext=(ct.split('/')[1]||'gif').replace('jpeg','jpg').split(';')[0];const f=`emy/${set}-${++i}.${ext}`;
-          fs.writeFileSync(path.join(OUT,f),Buffer.from(await r.arrayBuffer()));s.charts.push({file:f,label:c.label,src:c.url})}catch(e){}}
+          const buf=Buffer.from(await r.arrayBuffer());if(!r.ok||buf.length<5000)continue;
+          const ext=buf[0]===0x89?'png':buf[0]===0xFF?'jpg':buf.slice(0,3).toString()==='GIF'?'gif':buf.slice(0,4).toString()==='%PDF'?'pdf':null;if(!ext||ext==='pdf')continue;const f=`emy/${set}-${++i}.${ext}`;
+          fs.writeFileSync(path.join(OUT,f),buf);s.charts.push({file:f,label:c.label,src:c.url})}catch(e){}}
       if(!s.charts.length)throw new Error('no chart images found on the HNMS page')}
     catch(e){s.error=String(e.message||e)}}
   write('emy.json',out);console.log('EMY',Object.fromEntries(Object.entries(out.sets).map(([k,v])=>[k,v.error||v.charts.length])))}
