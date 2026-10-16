@@ -29,102 +29,108 @@ let MB=S.get('mb',{front:'',rear:'',bag:'',fuel:'',trip:''});const saveMB=()=>S.
 let FLEET=S.get('fleet',[]);const saveFleet=()=>S.set('fleet',FLEET);
 const acft=()=>FLEET.find(f=>f.reg===NL.acft)||FLEET[0]||null;
 
-/* ---------- navlog ---------- */
-function fillHeader(){
-  $('nl_acft').innerHTML=FLEET.length?FLEET.map(f=>`<option ${f.reg===NL.acft?'selected':''}>${esc(f.reg)}</option>`).join(''):'<option value="">Add aircraft in DA40 D → Fleet</option>';
-  $('nl_pic').value=NL.pic||'';$('nl_date').value=NL.date||E.todayISO();$('nl_tot').value=NL.tot||'';$('nl_ff').value=NL.ff||'';$('nl_rem').value=NL.rem||'';
-}
-['nl_pic','nl_date','nl_tot','nl_ff','nl_rem'].forEach(id=>$(id).addEventListener('input',e=>{NL[id.slice(3)]=e.target.value;saveNL();if(id==='nl_tot'||id==='nl_ff')E.calcNav()}));
-$('nl_acft').addEventListener('change',e=>{NL.acft=e.target.value;saveNL()});
-
+/* ---------- navlog: exact replica of CEA-OPS-06, editable on screen and printed as-is ---------- */
+const COLS=[128,100,117,90,134,100,100,101,102,154,102,101,102,117,101,102,134]; // px widths taken from the paper form (sum 1885)
+const pct=w=>(w/1885*100).toFixed(3)+'%';
+const ROWS=9;
+function fillHeader(){}
+function vin(attrs,val,cls){return `<input class="pin ${cls||''}" ${attrs} value="${esc(val==null?'':val)}" autocomplete="off">`}
+function ftCell(from,to,idx,editable){return `<td class="ft"><span class="f">${editable?esc(from):''}</span><span class="t">${editable?esc(to):''}</span></td>`}
 function renderLog(L){
-  const tbody=$('n_log');if(!tbody)return;
-  if(!L.length){tbody.innerHTML='<tr><td colspan="15" class="wrap" style="color:var(--muted)">Plan a route on the map or add points above. Each leg appears here as a row of the school\'s navlog.</td></tr>';renderFuel(L);renderComm();return}
-  let clock=parseHM(NL.tot);let tt=0,td=0;
-  const rows=L.map(l=>{const b=l.b;const t=Math.round(l.ete);td+=l.d;tt+=isFinite(t)?t:0;
-    const eta=isFinite(clock)&&isFinite(t)?clock+t:NaN;const ata=parseHM(b.ata);
-    clock=isFinite(ata)?ata:eta;                         // re-base later ETAs on the latest ATA
-    const drift=isFinite(l.wca)?(l.wca>=0?'+':'')+Math.round(l.wca):'—';
-    return `<tr data-i="${l.i}"><td class="ft"><b>${esc(l.a.n)}</b><span>${esc(b.n)}</span></td>
-      <td><input data-f="msa" value="${esc(b.msa||'')}" inputmode="numeric" placeholder="—"></td>
-      <td><input data-f="alt" value="${esc(b.alt||'')}" inputmode="numeric" placeholder="—"></td>
-      <td><input data-f="tas" value="${esc(b.tas||'')}" inputmode="numeric" placeholder="${Math.round(l.tas)||''}"></td>
-      <td class="wv"><input data-f="wd" value="${esc(b.wd||'')}" inputmode="numeric" placeholder="${isFinite(l.wd)?p3(l.wd):''}">/<input data-f="ws" value="${esc(b.ws||'')}" inputmode="numeric" placeholder="${isFinite(l.ws)?Math.round(l.ws):''}"></td>
-      <td>${p3(l.tc)}</td><td>${drift}</td><td>${isFinite(l.th)?p3(l.th):'—'}</td><td>${Math.abs(l.vr)}${l.vr>=0?'E':'W'}</td>
-      <td><b>${isFinite(l.mh)?p3(l.mh):'—'}</b></td><td>${isFinite(l.gs)?Math.round(l.gs):'—'}</td><td>${l.d.toFixed(1)}</td><td><b>${isFinite(t)?t:'—'}</b></td>
-      <td>${hm(eta)}</td><td><input data-f="ata" value="${esc(b.ata||'')}" placeholder="tap" class="ata" maxlength="5"></td></tr>`});
-  tbody.innerHTML=rows.join('')+`<tr class="tot"><td><b>Total</b></td><td colspan="10"></td><td><b>${td.toFixed(1)}</b></td><td><b>${tt}</b></td><td colspan="2"></td></tr>`;
-  NL._route=tt;renderFuel(L);renderComm();
+  const box=$('cea');if(!box)return;
+  let clock=parseHM(NL.tot);let tt=0;const legRows=[];
+  L.forEach(l=>{const b=l.b;const t=Math.round(l.ete);tt+=isFinite(t)?t:0;const eta=isFinite(clock)&&isFinite(t)?clock+t:NaN;const ata=parseHM(b.ata);clock=isFinite(ata)?ata:eta;legRows.push({l,b,t,eta})});
+  NL._route=tt;
+  const vr=num($('n_var')&&$('n_var').value);const varTxt=isFinite(vr)?Math.abs(vr)+(vr>=0?'E':'W'):'5E';
+  const rows=[];
+  for(let r=0;r<Math.max(ROWS,legRows.length);r++){const x=legRows[r];
+    if(!x){rows.push(`<tr class="leg">${ftCell('','',r)}<td></td><td></td><td></td><td class="wv"><span class="sl">/</span></td><td></td><td></td><td></td><td></td>${ftCell('','',r)}<td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`);continue}
+    const {l,b,t,eta}=x;const i=l.i;
+    rows.push(`<tr class="leg" data-i="${i}">${ftCell(l.a.n,b.n,r,true)}
+      <td>${vin(`data-f="msa"`,b.msa)}</td><td>${vin(`data-f="alt"`,b.alt)}</td>
+      <td>${vin(`data-f="tas" data-d="${Math.round(l.tas)||''}"`,b.tas||Math.round(l.tas)||'',b.tas?'':'def')}</td>
+      <td class="wv">${vin(`data-f="wd" data-d="${isFinite(l.wd)?p3(l.wd):''}"`,b.wd||(isFinite(l.wd)?p3(l.wd):''),'w '+(b.wd?'':'def'))}<span class="sl">/</span>${vin(`data-f="ws" data-d="${isFinite(l.ws)?Math.round(l.ws):''}"`,b.ws||(isFinite(l.ws)?Math.round(l.ws):''),'w '+(b.ws?'':'def'))}</td>
+      <td>${p3(l.tc)}</td><td>${isFinite(l.wca)?(l.wca>=0?'+':'')+Math.round(l.wca):''}</td><td>${isFinite(l.th)?p3(l.th):''}</td><td><b>${varTxt}</b></td>
+      ${ftCell(l.a.n,b.n,r,true)}<td>${vin(`data-f="alt"`,b.alt)}</td>
+      <td><b>${isFinite(l.mh)?p3(l.mh):''}</b></td><td>${isFinite(l.gs)?Math.round(l.gs):''}</td><td>${l.d.toFixed(1)}</td><td><b>${isFinite(t)?t:''}</b></td>
+      <td>${hm(eta)}</td><td>${vin(`data-f="ata" placeholder=""`,b.ata,'ata')}</td></tr>`)}
+  const A=NL.atis=NL.atis||{},F=NL.fuel=NL.fuel||{},C=NL.comm=NL.comm||{};
+  const ff=num(NL.ff),res=isFinite(num(F.reserve))?num(F.reserve):45,mar=num(F.margin)||0,req=tt+res,car=req+mar;
+  const Lt=m=>ff>0&&m?(m*ff/60).toFixed(1):'';
+  const st=commStations();const auto=commAuto(st);
+  const cv=(k,d)=>esc(C[k]!=null?C[k]:(d||''));
+  const ac=FLEET.length?`<select class="pin" id="cea_acft">${FLEET.map(f=>`<option ${f.reg===NL.acft?'selected':''}>${esc(f.reg)}</option>`).join('')}</select>`:vin('data-h="acft"',NL.acft);
+  const d=(NL.date||E.todayISO()).split('-');
+  box.innerHTML=`
+  <div class="cea-top"><img src="afm/cea-logo.png" alt="Cretan Eagle Aviation Flight Academy" class="cea-logo">
+    <div class="cea-addr">Cretan Eagle Aviation Ltd.,<br>Nikos Kazantzakis International Airport, GR-71601, Heraklion, Crete, Greece<br>Tel: +30 2810 331 890 / <u>www.cretaneagle.gr</u> / <u>info@cretaneagle.gr</u></div>
+    <div class="cea-ttl">VFR Navigation Flight Log Form</div></div>
+  <div class="cea-bar"><span>VFR Navigation Flight Log Form</span><span>CEA-OPS-06</span></div>
+  <div class="cea-note">All information contained below is strictly confidential and will become part of your <b>OPERATION</b> record. Please complete clearly in black CAPITAL letters.</div>
+  <table class="cea-t cea-head"><colgroup><col style="width:14%"><col style="width:26%"><col style="width:6.2%"><col style="width:14%"><col style="width:8.8%"><col style="width:12.5%"><col style="width:4.8%"><col style="width:13.7%"></colgroup>
+   <tr><th>Pilot in Command<br>(PIC)</th><td>${vin('data-h="pic"',NL.pic,'big')}</td><th>Aircraft</th><td>${ac}</td><th>Date</th><td class="dt">${vin('data-h="dd" maxlength="2"',d[2])}<span>/</span>${vin('data-h="mm" maxlength="2"',d[1])}<span>/</span>${vin('data-h="yy" maxlength="4"',d[0],'yy')}</td><th>T/O<br>TIME</th><td>${vin('data-h="tot" placeholder=":" maxlength="5"',NL.tot,'big')}</td></tr></table>
+  <table class="cea-t cea-legs"><colgroup>${COLS.map(w=>`<col style="width:${pct(w)}">`).join('')}</colgroup>
+   <tr class="lg"><td class="lgy lgl"><u>LEGEND</u></td><td class="lgy" colspan="2">MSA - MINIMUM SAFE ALTITUDE<br>W/V - WIND HEADING/ VELOCITY</td><td class="lgy" colspan="2">T(T) - TRUE TRACK<br>H(T) - TRUE HEADING<br>H(M) - MAGNETIC HEADING</td><td class="lgy" colspan="2">VAR - VARIATION<br>TAS - TRUE AIRSPEED<br>GS - GROUNDSPEED</td><td class="lgy" colspan="2">ETA - ESTIMATED TIME OF ARRIVAL<br>ATA - ACTUAL TIME OF ARRIVAL<br>ETD- ESTIMATED TIME OF DEPARTURE</td>
+     <td class="freda" colspan="8"><b>F</b>uel <i>/</i> <b>R</b>adios <i>/</i> <b>E</b>ngine-FADEC <i>/</i> <b>D</b>irection <i>/</i> <b>A</b>ltitude</td></tr>
+   <tr class="hd"><th class="ft"><span class="f">FROM</span><span class="t">TO</span></th><th>MSA</th><th class="sm">Route<br>Altitude<br>[ft]</th><th>TAS</th><th>W/V</th><th class="xs">TRACK<br>(T)</th><th class="xs">DRIFT [°]</th><th>H(T)</th><th>VAR</th>
+     <th class="ft"><span class="f">FROM</span><span class="t">TO</span></th><th class="sm">Route<br>Altitude<br>[ft]</th><th>H(M)</th><th>GS</th><th class="sm">Distance<br>[nm]</th><th class="sm">Time<br>[mn]</th><th>ETA</th><th>ATA</th></tr>
+   ${rows.join('')}</table>
+  <div class="cea-bot">
+   <table class="cea-t cea-atis"><colgroup><col style="width:9%"><col style="width:17%"><col style="width:25%"><col style="width:30%"><col style="width:19%"></colgroup>
+    <tr class="s"><th colspan="5" class="sec">ATIS</th></tr>
+    <tr><th colspan="2" class="l">STATION</th><td>${vin('data-a="stn"',A.stn)}</td><th class="l">Time</th><td>${vin('data-a="time"',A.time)}</td></tr>
+    <tr><th colspan="2" class="l">Info</th><td>${vin('data-a="info"',A.info)}</td><th class="l">Temp</th><td>${vin('data-a="temp"',A.temp)}</td></tr>
+    <tr><th colspan="2" class="l" rowspan="2">Wind<br>W/V</th><td rowspan="2">${vin('data-a="wind"',A.wind)}</td><th class="l">Dew point</th><td>${vin('data-a="dew"',A.dew)}</td></tr>
+    <tr><th class="l">QNH</th><td>${vin('data-a="qnh"',A.qnh)}</td></tr>
+    <tr><th colspan="2" class="l">Visibility</th><td>${vin('data-a="vis"',A.vis)}</td><th class="l">(T/L)</th><td>${vin('data-a="tl"',A.tl)}</td></tr>
+    <tr><th rowspan="4" class="clouds"><span>Clouds</span></th><th class="l">FEW</th><td>${vin('data-a="few"',A.few)}</td><th class="l" rowspan="4">RWY/<br>Approach</th><td rowspan="2">${vin('data-a="rwy"',A.rwy)}</td></tr>
+    <tr><th class="l">SCT</th><td>${vin('data-a="sct"',A.sct)}</td></tr>
+    <tr><th class="l">BKN</th><td>${vin('data-a="bkn"',A.bkn)}</td><td rowspan="2">${vin('data-a="app"',A.app)}</td></tr>
+    <tr><th class="l">OVC</th><td>${vin('data-a="ovc"',A.ovc)}</td></tr></table>
+   <table class="cea-t cea-rem"><tr class="s"><th class="sec">REMARKS/NOTES</th></tr><tr><td><textarea class="pin" data-h="rem">${esc(NL.rem||'')}</textarea></td></tr></table>
+   <table class="cea-t cea-comm"><colgroup><col style="width:24.4%"><col style="width:27.8%"><col style="width:22.9%"><col style="width:24.9%"></colgroup>
+    <tr class="s"><th colspan="4" class="sec">COMM/NAV</th></tr>
+    <tr><th>STATION</th>${[0,1,2].map(j=>`<td class="bg">${vin(`data-c="s${j}.id"`,C['s'+j+'.id']!=null?C['s'+j+'.id']:(auto[j]?auto[j].id:''),'b')}</td>`).join('')}</tr>
+    ${[['ATIS','ATIS'],['TWR','TWR'],['APP','APP/RAD']].map(([k,l])=>`<tr><th>${l}</th>${[0,1,2].map(j=>`<td>${vin(`data-c="s${j}.${k}"`,C['s'+j+'.'+k]!=null?C['s'+j+'.'+k]:(auto[j]?auto[j][k]:''),'b')}</td>`).join('')}</tr>`).join('')}
+    <tr><th rowspan="2">VOR</th>${[0,1,2].map(j=>`<td>${vin(`data-c="s${j}.VORid"`,C['s'+j+'.VORid']!=null?C['s'+j+'.VORid']:(auto[j]?auto[j].VORid:''),'b')}</td>`).join('')}</tr>
+    <tr>${[0,1,2].map(j=>`<td>${vin(`data-c="s${j}.VOR"`,C['s'+j+'.VOR']!=null?C['s'+j+'.VOR']:(auto[j]?auto[j].VOR:''),'b')}</td>`).join('')}</tr>
+    <tr class="adf"><th>ADF</th>${[0,1,2].map(j=>`<td>${vin(`data-c="s${j}.ADF"`,C['s'+j+'.ADF']!=null?C['s'+j+'.ADF']:(auto[j]?auto[j].ADF:''),'b')}</td>`).join('')}</tr></table>
+   <table class="cea-t cea-fuel"><colgroup><col style="width:25.2%"><col style="width:16.5%"><col style="width:21%"><col style="width:6.2%"><col style="width:31.1%"></colgroup>
+    <tr class="s"><th colspan="5" class="sec">FUEL CONSUMPTION</th></tr>
+    <tr><th colspan="2">STAGE</th><th>MIN</th><th colspan="2" class="sm">LITERS</th></tr>
+    <tr><th colspan="2">Route</th><td>${tt||''}</td><td colspan="2">${Lt(tt)}</td></tr>
+    <tr><th colspan="2">Reserve</th><td>${vin('data-u="reserve"',F.reserve!=null&&F.reserve!==''?F.reserve:'45`')}</td><td colspan="2">${Lt(res)}</td></tr>
+    <tr><th colspan="2">Fuel required</th><td>${tt?req:''}</td><td colspan="2">${tt?Lt(req):''}</td></tr>
+    <tr><th colspan="2">Margin</th><td>${vin('data-u="margin"',F.margin)}</td><td colspan="2">${Lt(mar)}</td></tr>
+    <tr><th colspan="2">Total carried</th><td>${tt?car:''}</td><td colspan="2">${tt?Lt(car):''}</td></tr>
+    <tr><th class="xs">BLOCKS<br>OFF</th><td>${vin('data-u="off" maxlength="5"',F.off,'ts')}</td><th class="xs" colspan="2">T/O</th><td>${vin('data-u="to" maxlength="5"',F.to,'ts')}</td></tr>
+    <tr><th class="xs">BLOCKS<br>ON</th><td>${vin('data-u="on" maxlength="5"',F.on,'ts')}</td><th class="xs" colspan="2">LAND</th><td>${vin('data-u="land" maxlength="5"',F.land,'ts')}</td></tr>
+    <tr class="sig"><td colspan="5">SIGNATURE:</td></tr></table>
+  </div>`;
+  const fs=$('nl_fuelsum');if(fs){const ob=num(MB.fuel);fs.textContent=(ff>0?`Fuel flow ${ff} L/h`:'Set a planning fuel flow to get litres')+(isFinite(ob)?` · on board ${ob} L${ff>0?` = ${Math.floor(ob/ff)}:${pad2(Math.round(ob/ff*60%60))} endurance`:''}`:'')+(isFinite(ob)&&ff>0&&tt&&ob<car*ff/60?' · NOT ENOUGH FUEL FOR TOTAL CARRIED':'')}
 }
-$('n_log').addEventListener('change',e=>{const t=e.target,f=t.dataset.f;if(!f)return;const i=+t.closest('tr').dataset.i;const w=E.wpts[i];if(!w)return;
-  w[f]=t.value.trim();E.saveRoute();E.calcNav()});
-$('n_log').addEventListener('focusin',e=>{const t=e.target;if(t.classList.contains('ata')&&!t.value){t.value=nowHM();t.dispatchEvent(new Event('change',{bubbles:true}))}});
-
-/* ATIS */
-const ATIS=[['stn','Station'],['info','Info'],['time','Time'],['wind','Wind W/V'],['vis','Visibility'],['temp','Temp'],['dew','Dew point'],['qnh','QNH'],['tl','T/L'],['few','FEW'],['sct','SCT'],['bkn','BKN'],['ovc','OVC'],['rwy','RWY / approach']];
-function renderAtis(){NL.atis=NL.atis||{};$('nl_atis').innerHTML=ATIS.map(([k,l])=>`<label>${l}<input data-a="${k}" value="${esc(NL.atis[k]||'')}" autocomplete="off"></label>`).join('')}
-$('nl_atis').addEventListener('input',e=>{const k=e.target.dataset.a;if(!k)return;NL.atis[k]=e.target.value;saveNL()});
-
-/* Fuel */
-function renderFuel(){
-  const ff=num(NL.ff),route=NL._route||0;NL.fuel=NL.fuel||{};const F=NL.fuel;
-  const reserve=isFinite(num(F.reserve))?num(F.reserve):45,margin=isFinite(num(F.margin))?num(F.margin):0;
-  const req=route+reserve,carry=req+margin;const L=m=>isFinite(ff)&&ff>0?(m*ff/60).toFixed(1):'—';
-  const onboard=num(MB.fuel);const endur=isFinite(onboard)&&ff>0?onboard/ff*60:NaN;
-  const short=isFinite(onboard)&&ff>0&&onboard<carry*ff/60;
-  $('nl_fuel').innerHTML=`<div class="tbl"><table class="fueltbl"><thead><tr><th>Stage</th><th>Min</th><th>Litres</th></tr></thead><tbody>
-   <tr><td>Route</td><td>${route}</td><td>${L(route)}</td></tr>
-   <tr><td>Reserve</td><td><input data-u="reserve" value="${reserve}" inputmode="numeric"></td><td>${L(reserve)}</td></tr>
-   <tr><td><b>Fuel required</b></td><td><b>${req}</b></td><td><b>${L(req)}</b></td></tr>
-   <tr><td>Margin</td><td><input data-u="margin" value="${esc(F.margin||'')}" inputmode="numeric" placeholder="0"></td><td>${L(margin)}</td></tr>
-   <tr><td><b>Total carried</b></td><td><b>${carry}</b></td><td><b>${L(carry)}</b></td></tr></tbody></table></div>
-   <p class="sub">${isFinite(onboard)?`On board per mass & balance: ${onboard} L${isFinite(endur)?` · endurance ${Math.floor(endur/60)}:${pad2(Math.round(endur%60))}`:''}`:'Enter fuel on board in DA40 D → Mass & balance.'}${!(ff>0)?' Set the planning fuel flow above to get litres.':''}</p>
-   ${short?'<p class="pill bad">Fuel on board is less than total carried</p>':''}
-   <div class="fields four" style="margin-top:8px">${[['off','Blocks off'],['to','T/O'],['land','Land'],['on','Blocks on']].map(([k,l])=>`<label>${l}<input data-u="${k}" value="${esc(F[k]||'')}" placeholder="tap" class="tstamp" maxlength="5"></label>`).join('')}</div>
-   <p class="sub" id="nl_block"></p>`;
-  const bt=parseHM(F.on)-parseHM(F.off),ft=parseHM(F.land)-parseHM(F.to);
-  $('nl_block').textContent=[isFinite(bt)?`Block time ${hm(bt)}`:'',isFinite(ft)?`Flight time ${hm(ft)}`:''].filter(Boolean).join(' · ');
-}
-$('nl_fuel').addEventListener('change',e=>{const k=e.target.dataset.u;if(!k)return;NL.fuel[k]=e.target.value.trim();saveNL();renderFuel()});
-$('nl_fuel').addEventListener('focusin',e=>{const t=e.target;if(t.classList.contains('tstamp')&&!t.value){t.value=nowHM();t.dispatchEvent(new Event('change',{bubbles:true}))}});
-
-/* Comm / Nav */
-function nearest(lat,lon,kind){let best=null,bd=25;(E.NAVAIDS||[]).forEach(n=>{const isV=/VOR|TACAN/.test(n[2]),isN=/NDB/.test(n[2]);if(kind==='VOR'?!isV:!isN)return;
-  const d=nm({lat,lon},{lat:n[4],lon:n[5]});if(d<bd){bd=d;best=n}});return best}
-function commStations(){const W=E.wpts;const ids=[];[W[0],W[W.length-1]].forEach(w=>{if(w&&E.BY[w.n]&&!ids.includes(w.n))ids.push(w.n)});
-  if(!ids.length&&E.BY.LGIR)ids.push('LGIR');return ids.slice(0,3)}
-function renderComm(){
-  NL.comm=NL.comm||{};const st=commStations();
-  const f=(a,t)=>{const x=a.freqs.find(q=>q[0]===t);return x?x[1]:''};
-  const auto=st.map(id=>{const a=E.BY[id];const v=nearest(a.lat,a.lon,'VOR'),n=nearest(a.lat,a.lon,'NDB');
-    return {id,ATIS:f(a,'ATIS'),TWR:f(a,'TWR')||f(a,'AFIS')||f(a,'INFO'),APP:f(a,'APP'),VOR:v?v[0]+' '+v[3]:'',ADF:n?n[0]+' '+n[3]:''}});
-  const rows=['ATIS','TWR','APP','VOR','ADF'],lab={ATIS:'ATIS',TWR:'TWR / AFIS',APP:'APP / RAD',VOR:'VOR',ADF:'ADF'};
-  $('nl_comm').innerHTML=`<thead><tr><th>Station</th>${auto.map(c=>`<th>${c.id}</th>`).join('')}<th><input data-c="x.id" value="${esc(NL.comm['x.id']||'')}" placeholder="other" style="min-width:70px"></th></tr></thead><tbody>${rows.map(r=>`<tr><td><b>${lab[r]}</b></td>${auto.map(c=>{const k=c.id+'.'+r;return `<td><input data-c="${k}" value="${esc(NL.comm[k]!=null?NL.comm[k]:c[r])}"></td>`}).join('')}<td><input data-c="x.${r}" value="${esc(NL.comm['x.'+r]||'')}"></td></tr>`).join('')}</tbody>`;
-}
-$('nl_comm').addEventListener('change',e=>{const k=e.target.dataset.c;if(!k)return;NL.comm[k]=e.target.value;saveNL()});
-
-/* Print in the school's form layout */
-$('nl_print').onclick=()=>{
-  const L=E.legs();const A=NL.atis||{},F=NL.fuel||{};let clock=parseHM(NL.tot);
-  const cell=v=>`<td>${esc(v==null?'':v)}</td>`;
-  const legsHTML=L.map(l=>{const b=l.b,t=Math.round(l.ete);const eta=isFinite(clock)&&isFinite(t)?clock+t:NaN;const ata=parseHM(b.ata);clock=isFinite(ata)?ata:eta;
-    return `<tr><td class="ftp">${esc(l.a.n)}<br>${esc(b.n)}</td>${cell(b.msa)}${cell(b.alt)}${cell(Math.round(l.tas))}${cell((isFinite(l.wd)?p3(l.wd):'')+'/'+(isFinite(l.ws)?Math.round(l.ws):''))}${cell(p3(l.tc))}${cell(isFinite(l.wca)?(l.wca>=0?'+':'')+Math.round(l.wca):'')}${cell(isFinite(l.th)?p3(l.th):'')}${cell(Math.abs(l.vr)+(l.vr>=0?'E':'W'))}${cell(isFinite(l.mh)?p3(l.mh):'')}${cell(isFinite(l.gs)?Math.round(l.gs):'')}${cell(l.d.toFixed(1))}${cell(isFinite(t)?t:'')}${cell(hm(eta))}${cell(b.ata||'')}</tr>`}).join('');
-  const blank='<tr>'+'<td>&nbsp;</td>'.repeat(15)+'</tr>';
-  const ff=num(NL.ff),route=NL._route||0,res=isFinite(num(F.reserve))?num(F.reserve):45,mar=num(F.margin)||0;const Lt=m=>ff>0?(m*ff/60).toFixed(1):'';
-  const st=commStations();const C=k=>{const el=document.querySelector(`#nl_comm [data-c="${k}"]`);return el?el.value:''};
-  const p=$('printarea');p.innerHTML=`<div class="pf">
-   <div class="pf-h"><b>VFR Navigation Flight Log Form</b><span>CEA-OPS-06</span></div>
-   <table class="pf-t"><tr><th>Pilot in Command (PIC)</th><td>${esc(NL.pic||'')}</td><th>Aircraft</th><td>${esc($('nl_acft').value||'')}</td><th>Date</th><td>${esc(($('nl_date').value||'').split('-').reverse().join('/'))}</td><th>T/O time</th><td>${esc(NL.tot||'')}</td></tr></table>
-   <table class="pf-t pf-legs"><colgroup><col style="width:13%"><col><col><col><col><col><col><col><col><col><col><col><col><col><col></colgroup><thead><tr><th>From / To</th><th>MSA</th><th>Route alt [ft]</th><th>TAS</th><th>W/V</th><th>Track (T)</th><th>Drift [°]</th><th>H(T)</th><th>VAR</th><th>H(M)</th><th>GS</th><th>Distance [nm]</th><th>Time [min]</th><th>ETA</th><th>ATA</th></tr></thead>
-   <tbody>${legsHTML}${blank.repeat(Math.max(0,9-L.length))}</tbody></table>
-   <div class="pf-g">
-    <table class="pf-t pf-atis"><tr><th colspan="4">ATIS</th></tr>${[['Station','stn','Time','time'],['Info','info','Temp','temp'],['Wind W/V','wind','Dew point','dew'],['Visibility','vis','QNH','qnh'],['FEW','few','(T/L)','tl'],['SCT','sct','RWY / App','rwy'],['BKN','bkn','',''],['OVC','ovc','','']].map(([a,b,c,d])=>`<tr><th>${a}</th><td>${esc(A[b]||'')}</td><th>${c}</th><td>${d?esc(A[d]||''):''}</td></tr>`).join('')}</table>
-    <table class="pf-t"><tr><th>Remarks / notes</th></tr><tr><td class="rem">${esc(NL.rem||'').replace(/\n/g,'<br>')}</td></tr></table>
-    <table class="pf-t"><tr><th colspan="${st.length+2}">COMM / NAV</th></tr><tr><th>Station</th>${st.map(s=>`<th>${s}</th>`).join('')}<th>${esc(C('x.id'))}</th></tr>${['ATIS','TWR','APP','VOR','ADF'].map(r=>`<tr><th>${r==='APP'?'APP/RAD':r}</th>${st.map(s=>`<td>${esc(C(s+'.'+r))}</td>`).join('')}<td>${esc(C('x.'+r))}</td></tr>`).join('')}</table>
-    <table class="pf-t"><tr><th colspan="3">FUEL CONSUMPTION</th></tr><tr><th>Stage</th><th>Min</th><th>Litres</th></tr><tr><th>Route</th><td>${route}</td><td>${Lt(route)}</td></tr><tr><th>Reserve</th><td>${res}</td><td>${Lt(res)}</td></tr><tr><th>Fuel required</th><td>${route+res}</td><td>${Lt(route+res)}</td></tr><tr><th>Margin</th><td>${mar||''}</td><td>${mar?Lt(mar):''}</td></tr><tr><th>Total carried</th><td>${route+res+mar}</td><td>${Lt(route+res+mar)}</td></tr><tr><th>Blocks off</th><td>${esc(F.off||'')}</td><td>T/O ${esc(F.to||'')}</td></tr><tr><th>Blocks on</th><td>${esc(F.on||'')}</td><td>Land ${esc(F.land||'')}</td></tr><tr><th>Signature</th><td colspan="2" style="height:28px"></td></tr></table>
-   </div><p class="pf-n">Fuel / Radios / Engine-FADEC / Direction / Altitude · Generated by DA40 D Flight Bag. Check all values before flight.</p></div>`;
-  window.print();
-};
+function commStations(){const W=E.wpts;const ids=[];[W[0],W[W.length-1]].forEach(w=>{if(w&&E.BY[w.n]&&!ids.includes(w.n))ids.push(w.n)});if(!ids.length&&E.BY.LGIR)ids.push('LGIR');return ids.slice(0,3)}
+function nearest(lat,lon,kind){let best=null,bd=25;(E.NAVAIDS||[]).forEach(n=>{const isV=/VOR|TACAN/.test(n[2]),isN=/NDB/.test(n[2]);if(kind==='VOR'?!isV:!isN)return;const d=nm({lat,lon},{lat:n[4],lon:n[5]});if(d<bd){bd=d;best=n}});return best}
+function commAuto(st){const f=(a,t)=>{const x=a.freqs.find(q=>q[0]===t);return x?x[1]:''};
+  return st.map(id=>{const a=E.BY[id];const v=nearest(a.lat,a.lon,'VOR'),n=nearest(a.lat,a.lon,'NDB');
+    return {id,ATIS:f(a,'ATIS'),TWR:f(a,'TWR')||f(a,'AFIS')||f(a,'INFO'),APP:f(a,'APP'),VORid:v?v[0]:'',VOR:v?v[3]:'',ADF:n?(n[3]+(n[0]?' '+n[0]:'')):''}})}
+/* events */
+$('cea').addEventListener('change',e=>{const t=e.target;const v=t.value;
+  if(t.id==='cea_acft'){NL.acft=v;saveNL();return}
+  if(t.dataset.f){const i=+t.closest('tr').dataset.i;const w=E.wpts[i];if(!w)return;w[t.dataset.f]=(t.dataset.d!=null&&v.trim()===t.dataset.d)?'':v.trim();E.saveRoute();E.calcNav();return}
+  if(t.dataset.a){NL.atis[t.dataset.a]=v;saveNL();return}
+  if(t.dataset.c){NL.comm[t.dataset.c]=v;saveNL();return}
+  if(t.dataset.u){NL.fuel[t.dataset.u]=v.trim().replace('`','');saveNL();E.calcNav();return}
+  const h=t.dataset.h;if(!h)return;
+  if(h==='dd'||h==='mm'||h==='yy'){const q=s=>$('cea').querySelector(`[data-h="${s}"]`).value.padStart(2,'0');NL.date=`${q('yy')}-${q('mm')}-${q('dd')}`;saveNL();return}
+  NL[h]=v;saveNL();if(h==='tot')E.calcNav()});
+$('cea').addEventListener('input',e=>{if(e.target.dataset.h==='rem'){NL.rem=e.target.value;saveNL()}});
+$('cea').addEventListener('focusin',e=>{const t=e.target;if((t.classList.contains('ata')||t.classList.contains('ts'))&&!t.value){t.value=nowHM();t.dispatchEvent(new Event('change',{bubbles:true}))}});
+$('nl_ff').value=NL.ff||'';$('nl_ff').addEventListener('input',e=>{NL.ff=e.target.value;saveNL();E.calcNav()});
+$('nl_print').onclick=()=>window.print();
+$('nl_clear').onclick=e=>{const b=e.target;if(b.textContent!=='Tap again to clear'){b.textContent='Tap again to clear';setTimeout(()=>b.textContent='New blank log',3000);return}
+  NL={ff:NL.ff,pic:NL.pic,acft:NL.acft};saveNL();E.wpts.forEach(w=>{['ata','msa','alt','tas','wd','ws'].forEach(k=>delete w[k])});E.saveRoute();E.calcNav();b.textContent='New blank log'};
+function renderAtis(){}
 
 /* ---------- mass & balance ---------- */
 function mbCalc(){
