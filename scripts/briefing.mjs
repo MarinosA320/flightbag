@@ -7,6 +7,9 @@ import fs from 'node:fs';import path from 'node:path';
 import {onRequestGet as metarFn} from '../functions/api/wx/metar.js';
 import {onRequestGet as notamFn} from '../functions/api/notam.js';
 import {onRequestGet as emyFn} from '../functions/api/wx/emy.js';
+/* every network call gets a timeout so a slow site cannot hang the run */
+const _fetch=globalThis.fetch;globalThis.fetch=(u,o={})=>_fetch(u,{...o,signal:o.signal||AbortSignal.timeout(30000)});
+const T0=Date.now();
 const OUT=process.argv[2]||'out';fs.mkdirSync(path.join(OUT,'emy'),{recursive:true});
 const ids=[...fs.readFileSync('data.js','utf8').split('\n').find(l=>l.startsWith('window.EFB_AIRPORTS')).matchAll(/"icao": "([A-Z]{4})"/g)].map(m=>m[1]);
 {const o=fs.readFileSync('data.js','utf8').split('\n').find(l=>l.startsWith('window.EFB_OTHER'));if(o)for(const m of o.matchAll(/\["(LG[A-Z]{2})"/g))if(!ids.includes(m[1]))ids.push(m[1])}
@@ -24,20 +27,22 @@ const write=(f,o)=>fs.writeFileSync(path.join(OUT,f),JSON.stringify(o));
         if(m)out.metar.push({icaoId:id,rawOb:'METAR '+m,src:'NOAA'});if(t)out.taf.push({icaoId:id,rawTAF:t})}}
     else{out.metar.push(...(j.metar||[]));out.taf.push(...(j.taf||[]))}}
   write('metar.json',out);console.log('METAR',out.metar.length,'TAF',out.taf.length,out.errors)}
-/* NOTAMs (autorouter if its secrets are set, otherwise FAA NOTAM Search) */
+/* NOTAMs (autorouter if its secrets are set, otherwise FAA NOTAM Search). Training aerodromes and the FIR first,
+   4 at a time, within a time budget; anything not fetched keeps its previous list (up to 12 h old). */
 {const env={AUTOROUTER_EMAIL:process.env.AUTOROUTER_EMAIL||'',AUTOROUTER_PASSWORD:process.env.AUTOROUTER_PASSWORD||'',NOTAMIFY_TOKEN:process.env.NOTAMIFY_TOKEN||''};
-  const all=[...ids,'LGGG'];const out={fetched:now(),source:'',notams:{},errors:{}};
-  for(const c of chunks(all,8)){try{const j=await call(notamFn,'https://x/api/notam?ids='+c.join(','),env);
+  const nTrain=fs.readFileSync('data.js','utf8').split('\n').find(l=>l.startsWith('window.EFB_AIRPORTS')).match(/"icao":/g).length;
+  const all=[...ids.slice(0,nTrain),'LGGG',...ids.slice(nTrain)];const out={fetched:now(),source:'',notams:{},errors:{}};
+  const budget=T0+9*60e3;
+  for(const c of chunks(all,4)){if(Date.now()>budget){c.forEach(id=>out.errors[id]='not refreshed this run');continue}
+    try{const j=await call(notamFn,'https://x/api/notam?ids='+c.join(','),env);
       out.source=j.source||out.source;Object.assign(out.notams,j.notams||{});Object.assign(out.errors,j.errors||{})}
     catch(e){c.forEach(id=>out.errors[id]=String(e.message||e))}}
-  /* retry failures once after a pause (the FAA service rate-limits long lists such as LGGG) */
-  for(const id of Object.keys(out.errors)){await new Promise(r=>setTimeout(r,20000));
+  for(const id of Object.keys(out.errors)){if(Date.now()>budget||out.errors[id]==='not refreshed this run')continue;await new Promise(r=>setTimeout(r,8000));
     try{const j=await call(notamFn,'https://x/api/notam?ids='+id,env);if(j.notams&&j.notams[id]){out.notams[id]=j.notams[id];delete out.errors[id]}}catch(e){}}
-  /* still failing: keep the previous good list (up to 12 h old) and say when it was retrieved */
   if(Object.keys(out.errors).length){try{const prev=await (await fetch('https://raw.githubusercontent.com/'+(process.env.GITHUB_REPOSITORY||'MarinosA320/flightbag')+'/wx/notam.json')).json();
-    for(const id of Object.keys(out.errors)){const at=(prev.at&&prev.at[id])||prev.fetched;
-      if(prev.notams&&prev.notams[id]&&!(prev.errors||{})[id]&&Date.now()-Date.parse(at)<12*3600e3){out.notams[id]=prev.notams[id];out.at=out.at||{};out.at[id]=at;out.errors[id]=undefined;delete out.errors[id];out.stale=out.stale||{};out.stale[id]=at}}}catch(e){}}
-  write('notam.json',out);console.log('NOTAM',Object.values(out.notams).reduce((s,l)=>s+l.length,0),'errors',out.errors)}
+    for(const id of Object.keys(out.errors)){const at=(prev.stale&&prev.stale[id])||prev.fetched;
+      if(prev.notams&&prev.notams[id]&&!(prev.errors||{})[id]&&Date.now()-Date.parse(at)<12*3600e3){out.notams[id]=prev.notams[id];delete out.errors[id];out.stale=out.stale||{};out.stale[id]=at}}}catch(e){}}
+  write('notam.json',out);console.log('NOTAM',Object.values(out.notams).reduce((s,l)=>s+l.length,0),'errors',out.errors,'s',(Date.now()-T0)/1e3)}
 /* HNMS (EMY) charts: images are downloaded so the app never needs the http-only site */
 {const out={fetched:now(),sets:{}};
   for(const set of ['swc','wind','pressure']){const s=out.sets[set]={charts:[]};
