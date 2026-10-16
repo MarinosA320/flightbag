@@ -98,22 +98,29 @@ async function wxDoc(ids){let w={},err='';try{w=await E.getWx(ids)}catch(e){err=
   const rows=ids.map(id=>{const x=w[id]||{};const a=E.BY[id];return `<section class="wxb"><h3>${id}${a?' · '+esc(a.name):''}</h3>
     <p class="lbl">METAR${x.metar&&x.metar.fltCat?' · '+esc(x.metar.fltCat):''}</p><pre>${x.metar?esc(x.metar.rawOb):'No METAR available for this aerodrome.'}</pre>
     <p class="lbl">TAF</p><pre>${x.taf?esc(x.taf.rawTAF).replace(/ (BECMG|TEMPO|FM\d|PROB\d\d)/g,'\n   $1'):'No TAF issued for this aerodrome.'}</pre></section>`}).join('');
-  return `<section class="ppage doc">${docHead('METAR / TAF','Source: aviationweather.gov · retrieved '+new Date().toISOString().slice(0,16).replace('T',' ')+'Z')}<div class="wxcols">${rows}</div></section>`}
+  return `<section class="ppage doc">${docHead('METAR / TAF','Source: aviationweather.gov · retrieved '+(()=>{const t=ids.map(i=>w[i]&&w[i].metar&&w[i].metar.at).filter(Boolean).sort()[0];return t?utc(t):new Date().toISOString().slice(0,16).replace('T',' ')+'Z'})())}<div class="wxcols">${rows}</div></section>`}
 async function notamDoc(ids){const all=[...ids,'LGGG'];
-  if(!window.EFB_SERVER)return `<section class="ppage doc">${docHead('NOTAM briefing',all.join(' · '))}<p class="warnbox">NOTAMs are fetched by the school server. This copy of the app is not running on the school server, so NOTAMs could not be included. Obtain them from EUROCONTROL EAD or the Greek AIS and attach them to this pack.</p></section>`;
-  try{const r=await fetch('/api/notam?ids='+all.join(','),{cache:'no-store'});const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);
-    const now=Date.now();
-    const sec=all.map(id=>{const L=(j.notams[id]||[]).slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));const a=E.BY[id];
-      return `<section class="nt"><h3>${id}${id==='LGGG'?' · Athinai FIR':a?' · '+esc(a.name):''} <small>${j.errors&&j.errors[id]?'· could not be retrieved: '+esc(j.errors[id]):L.length+' NOTAM'+(L.length===1?'':'s')}</small></h3>
-        ${L.map(n=>`<div class="nn"><b>${esc(n.id)}</b>${n.category?` <span class="nc">${esc(n.category)}</span>`:''}<pre>${esc(n.text)}</pre>${n.plain?`<p class="np">${esc(n.plain)}</p>`:''}</div>`).join('')||(j.errors&&j.errors[id]?'':'<p class="sub">No NOTAMs in force.</p>')}</section>`}).join('');
-    return `<section class="ppage doc">${docHead('NOTAM briefing',`${all.join(' · ')} · ${j.source} · retrieved ${utc(j.fetched)}`)}<div class="ntcols">${sec}</div><p class="foot">Check the official pre-flight information bulletin (EUROCONTROL EAD / Greek AIS) before flight. This list is a convenience copy.</p></section>`}
-  catch(e){return `<section class="ppage doc">${docHead('NOTAM briefing',all.join(' · '))}<p class="warnbox">NOTAMs could not be retrieved (${esc(e.message||e)}). Obtain them from EUROCONTROL EAD or the Greek AIS and attach them to this pack.</p></section>`}}
+  const fail=m=>`<section class="ppage doc">${docHead('NOTAM briefing',all.join(' · '))}<p class="warnbox">NOTAMs could not be retrieved (${esc(m)}). Obtain them from EUROCONTROL EAD or the Greek AIS and attach them to this pack.</p></section>`;
+  let j=null,errs=[];
+  if(window.EFB_SERVER){try{const r=await fetch('/api/notam?ids='+all.join(','),{cache:'no-store'});j=await r.json();if(!r.ok)throw new Error(j.error||r.status)}catch(e){j=null;errs.push('school server: '+(e.message||e))}}
+  if(!j){try{j=await E.feed('notam.json');const miss=all.filter(i=>!(i in j.notams)&&!(j.errors&&j.errors[i]));
+      if(Date.now()-Date.parse(j.fetched)>6*3600e3)throw new Error('feed out of date ('+utc(j.fetched)+')');
+      miss.forEach(i=>{j.errors=j.errors||{};j.errors[i]='not in the briefing feed'})}catch(e){j=null;errs.push('briefing feed: '+(e.message||e))}}
+  if(!j)return fail(errs.join('; '));
+  const sec=all.map(id=>{const L=(j.notams[id]||[]).slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));const a=E.BY[id];
+    return `<section class="nt"><h3>${id}${id==='LGGG'?' · Athinai FIR':a?' · '+esc(a.name):''} <small>${j.errors&&j.errors[id]?'· could not be retrieved: '+esc(j.errors[id]):L.length+' NOTAM'+(L.length===1?'':'s')}</small></h3>
+      ${L.map(n=>`<div class="nn"><b>${esc(n.id)}</b>${n.category?` <span class="nc">${esc(n.category)}</span>`:''}<pre>${esc(n.text)}</pre>${n.plain?`<p class="np">${esc(n.plain)}</p>`:''}</div>`).join('')||(j.errors&&j.errors[id]?'':'<p class="sub">No NOTAMs in force.</p>')}</section>`}).join('');
+  return `<section class="ppage doc">${docHead('NOTAM briefing',`${all.join(' · ')} · ${esc(j.source||'')} · retrieved ${utc(j.fetched)}`)}<div class="ntcols">${sec}</div><p class="foot">Check the official pre-flight information bulletin (EUROCONTROL EAD / Greek AIS) before flight. This list is a convenience copy.</p></section>`}
 async function chartPages(){const SETS=[['swc','Significant weather chart'],['wind','Wind and temperature aloft'],['pressure','Surface pressure chart']];
-  if(!window.EFB_SERVER)return `<section class="ppage doc">${docHead('Weather charts','HNMS (EMY)')}<p class="warnbox">The HNMS charts are fetched by the school server. This copy of the app is not running on it, so the charts are not included. Print them from oldportal.emy.gr.</p></section>`;
-  let out='';for(const [k,t] of SETS){try{const r=await fetch('/api/wx/emy?set='+k,{cache:'no-store'});const j=await r.json();if(!r.ok)throw new Error(j.error);
-      const imgs=j.charts.filter(c=>!c.pdf);if(!imgs.length)throw new Error('no charts found on the HNMS page');
-      out+=imgs.map(c=>`<section class="ppage chart">${docHead(t,'HNMS (EMY) · '+(c.label||'')+' · retrieved '+utc(j.fetched))}<img class="wxc" src="/api/wx/img?u=${encodeURIComponent(c.url)}" alt="${esc(t)}"></section>`).join('')}
-    catch(e){out+=`<section class="ppage doc">${docHead(t,'HNMS (EMY)')}<p class="warnbox">${esc(t)} could not be retrieved (${esc(e.message||e)}).</p></section>`}}
+  let fd=null,fe='';if(!window.EFB_SERVER){try{fd=await E.feed('emy.json')}catch(e){fe=e.message||String(e)}}
+  let out='';for(const [k,t] of SETS){try{let imgs,when;
+      if(window.EFB_SERVER){const r=await fetch('/api/wx/emy?set='+k,{cache:'no-store'});const j=await r.json();if(!r.ok)throw new Error(j.error);
+        imgs=j.charts.filter(c=>!c.pdf).map(c=>({src:'/api/wx/img?u='+encodeURIComponent(c.url),label:c.label}));when=j.fetched}
+      else{if(!fd)throw new Error('briefing feed: '+fe);const s=fd.sets[k]||{};if(s.error)throw new Error(s.error);
+        imgs=(s.charts||[]).map(c=>({src:E.FEED+c.file+'?t='+Date.parse(fd.fetched),label:c.label}));when=fd.fetched}
+      if(!imgs.length)throw new Error('no charts found on the HNMS page');
+      out+=imgs.map(c=>`<section class="ppage chart">${docHead(t,'HNMS (EMY) · '+esc(c.label||'')+' · retrieved '+utc(when))}<img class="wxc" src="${esc(c.src)}" alt="${esc(t)}"></section>`).join('')}
+    catch(e){out+=`<section class="ppage doc">${docHead(t,'HNMS (EMY)')}<p class="warnbox">${esc(t)} could not be retrieved (${esc(e.message||e)}). Print it from oldportal.emy.gr.</p></section>`}}
   return out}
 
 async function build(which){const all=which.includes('all');let h='';const ids=briefIds();

@@ -57,6 +57,9 @@ window.addEventListener('hashchange',route);
 
 /* ---------- weather ---------- */
 const wxCache={};
+/* Briefing feed: METAR/TAF, NOTAMs and HNMS charts fetched every ~15 min by GitHub Actions (wx branch) */
+const FEED='https://raw.githubusercontent.com/MarinosA320/flightbag/wx/';
+async function feed(f){const r=await fetch(FEED+f+'?t='+Math.floor(Date.now()/120e3),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
 async function getWx(ids){
   ids=[...new Set(ids.filter(i=>/^[A-Z]{4}$/.test(i)))];if(!ids.length)return {};
   const now=Date.now(),need=ids.filter(i=>!wxCache[i]||now-wxCache[i].t>8*60e3);
@@ -64,6 +67,7 @@ async function getWx(ids){
     const q=need.join(',');let mj=null,tj=[],errs=[];
     const J=async u=>{const r=await fetch(u,{cache:'no-store'});if(r.status===204)return [];if(!r.ok)throw new Error('HTTP '+r.status);const t=await r.text();return t.trim()?JSON.parse(t):[]};
     if(window.EFB_SERVER){try{const j=await J('/api/wx/metar?ids='+q);mj=j.metar||[];tj=j.taf||[]}catch(e){errs.push('school server: '+e.message)}}
+    if(!mj){try{const f=await feed('metar.json');if(Date.now()-Date.parse(f.fetched)<3*3600e3&&need.every(i=>f.ids.includes(i))){mj=f.metar.map(o=>({...o,at:f.fetched}));tj=f.taf}else errs.push('briefing feed: '+(need.every(i=>f.ids.includes(i))?'out of date ('+f.fetched.slice(11,16)+'Z)':'aerodrome not in feed'))}catch(e){errs.push('briefing feed: '+e.message)}}
     if(!mj){try{[mj,tj]=await Promise.all([J(`https://aviationweather.gov/api/data/metar?ids=${q}&format=json`),J(`https://aviationweather.gov/api/data/taf?ids=${q}&format=json`)])}catch(e){mj=null;errs.push('aviationweather.gov: '+(e.message||'blocked'))}}
     if(!mj){/* fallback: NOAA raw text files, one per station */
       try{mj=[];tj=[];await Promise.all(need.map(async id=>{
@@ -550,7 +554,7 @@ function restoreOverlays(){const st=S.get('ovl',{});Object.values(st).forEach(o=
 function viewImage(url,w,h,title){cvCur=null;$('cv').hidden=false;$('cv_ovl').hidden=true;$('cv_title').textContent=title;$('cv_sub').textContent='';$('cv_pg').textContent='';$('cv_prev').hidden=$('cv_next').hidden=true;
   if(!cv){cv=L.map('cv_map',{crs:L.CRS.Simple,minZoom:-4,maxZoom:3,zoomSnap:.25,attributionControl:false,zoomControl:false});L.control.zoom({position:'bottomright'}).addTo(cv);cv.on('click',e=>{if(alignState&&alignState.step%2===0)alignChartClick(e.latlng)})}
   if(cvImg)cv.removeLayer(cvImg);const b=[[-h,0],[0,w]];cvImg=L.imageOverlay(url,b).addTo(cv);setTimeout(()=>{cv.invalidateSize();cv.fitBounds(b)},30)}
-window.EFB={viewImage,getWx,get wpts(){return wpts},legs,S,BY,APTS,NAVAIDS,esc,num,p3,fmtT,go,todayISO,dm,saveRoute,gc,calcNav,
+window.EFB={feed,FEED,viewImage,getWx,get wpts(){return wpts},legs,S,BY,APTS,NAVAIDS,esc,num,p3,fmtT,go,todayISO,dm,saveRoute,gc,calcNav,
   get ownPos(){return window._ownPos||null}};
 /* ---------- boot ---------- */
 renderBrief();drawWind();calcDA();score();keyStat();

@@ -1,0 +1,33 @@
+# Refreshes the briefing feed (METAR/TAF, NOTAMs, HNMS charts) and publishes it to the "wx" branch.
+name: Briefing data
+on:
+  schedule:
+    - cron: '9,24,39,54 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: briefing
+  cancel-in-progress: true
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fetch briefing data
+        run: echo '{"type":"module"}' > package.json && node scripts/briefing.mjs out
+        env:
+          AUTOROUTER_EMAIL: ${{ secrets.AUTOROUTER_EMAIL }}
+          AUTOROUTER_PASSWORD: ${{ secrets.AUTOROUTER_PASSWORD }}
+          NOTAMIFY_TOKEN: ${{ secrets.NOTAMIFY_TOKEN }}
+      - name: Publish to the wx branch
+        run: |
+          cd out
+          git init -q -b wx
+          git add -A
+          git -c user.name=briefing-bot -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -qm "Briefing data $(date -u +%FT%TZ)"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}" wx
