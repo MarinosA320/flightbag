@@ -69,8 +69,8 @@ async function getWx(ids){
       try{mj=[];tj=[];await Promise.all(need.map(async id=>{
         const m=await fetch(`https://tgftp.nws.noaa.gov/data/observations/metar/stations/${id}.TXT`,{cache:'no-store'}).then(r=>r.ok?r.text():'').catch(()=>null);
         const t=await fetch(`https://tgftp.nws.noaa.gov/data/forecasts/taf/stations/${id}.TXT`,{cache:'no-store'}).then(r=>r.ok?r.text():'').catch(()=>null);
-        if(m===null&&t===null)throw new Error('blocked');
-        const body=s=>(s||'').split('\n').slice(1).join(' ').replace(/\s+/g,' ').trim();
+        const body=s=>{if(!s||/<[a-z!]/i.test(s))return '';const L=s.split('\n');const b=L.slice(1).join(' ').replace(/\s+/g,' ').trim();return /^\d{4}\/\d\d\/\d\d/.test(L[0])&&new RegExp('(^|\\s)'+id+'\\s').test(' '+b+' ')?b:''};
+        if(m===null&&t===null)throw new Error('blocked');if((m&&!body(m))&&(t&&!body(t)))throw new Error('invalid reply');
         if(body(m))mj.push({icaoId:id,rawOb:'METAR '+body(m),src:'NOAA'});if(body(t))tj.push({icaoId:id,rawTAF:body(t)})}))}
       catch(e){mj=null;errs.push('NOAA: '+(e.message||'blocked'))}}
     if(!mj){need.forEach(i=>wxCache[i]={t:0,metar:null,taf:null,err:errs.join('; ')});throw new Error('Weather could not be retrieved ('+errs.join('; ')+')')}
