@@ -29,6 +29,13 @@ const write=(f,o)=>fs.writeFileSync(path.join(OUT,f),JSON.stringify(o));
   for(const c of chunks(all,8)){try{const j=await call(notamFn,'https://x/api/notam?ids='+c.join(','),env);
       out.source=j.source||out.source;Object.assign(out.notams,j.notams||{});Object.assign(out.errors,j.errors||{})}
     catch(e){c.forEach(id=>out.errors[id]=String(e.message||e))}}
+  /* retry failures once after a pause (the FAA service rate-limits long lists such as LGGG) */
+  for(const id of Object.keys(out.errors)){await new Promise(r=>setTimeout(r,20000));
+    try{const j=await call(notamFn,'https://x/api/notam?ids='+id,env);if(j.notams&&j.notams[id]){out.notams[id]=j.notams[id];delete out.errors[id]}}catch(e){}}
+  /* still failing: keep the previous good list (up to 12 h old) and say when it was retrieved */
+  if(Object.keys(out.errors).length){try{const prev=await (await fetch('https://raw.githubusercontent.com/'+(process.env.GITHUB_REPOSITORY||'MarinosA320/flightbag')+'/wx/notam.json')).json();
+    for(const id of Object.keys(out.errors)){const at=(prev.at&&prev.at[id])||prev.fetched;
+      if(prev.notams&&prev.notams[id]&&!(prev.errors||{})[id]&&Date.now()-Date.parse(at)<12*3600e3){out.notams[id]=prev.notams[id];out.at=out.at||{};out.at[id]=at;out.errors[id]=undefined;delete out.errors[id];out.stale=out.stale||{};out.stale[id]=at}}}catch(e){}}
   write('notam.json',out);console.log('NOTAM',Object.values(out.notams).reduce((s,l)=>s+l.length,0),'errors',out.errors)}
 /* HNMS (EMY) charts: images are downloaded so the app never needs the http-only site */
 {const out={fetched:now(),sets:{}};
