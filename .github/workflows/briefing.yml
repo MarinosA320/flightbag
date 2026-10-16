@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '9,24,39,54 * * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['scripts/**', 'functions/**', 'data.js', '.github/workflows/briefing.yml']
 permissions:
   contents: write
 concurrency:
