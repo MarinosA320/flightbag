@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 <div id="app">
@@ -41,6 +41,8 @@
         <label class="sw"><input type="checkbox" id="m_oaip"> openAIP aviation chart <span class="hint" id="m_oaip_hint"></span></label>
         <label class="sw"><input type="checkbox" id="m_enr" checked> Training airports</label>
         <label class="sw"><input type="checkbox" id="m_oth"> Other Greek airfields</label>
+        <label class="sw"><input type="checkbox" id="m_avfr"> VFR reporting points (AIP)</label>
+        <label class="sw"><input type="checkbox" id="m_aifr"> IFR / RNAV points (AIP ENR 4.4)</label>
         <label class="sw"><input type="checkbox" id="m_nav"> VOR / NDB navaids</label>
         <label class="sw"><input type="checkbox" id="m_vrp" checked> Your VRPs</label>
       </div>
@@ -205,7 +207,7 @@
           <p class="sub" id="s_bstat"></p>
         </div>
         <div class="card"><h2>Data sources</h2>
-          <p class="sub">Airports, runways and frequencies: OurAirports, public domain, downloaded 16 Oct 2026. Weather: aviationweather.gov. Maps: OpenStreetMap, OpenTopoMap, Esri, openAIP. None of this data is certified. Always use the current AIP Greece and official briefing for flight.</p>
+          <p class="sub">VFR and IFR/RNAV points: AIP Greece AMDT 09/26 (effective 29 Oct 2026), AD 2 VFR charts and ENR 4.4. Airports, runways and frequencies: OurAirports, public domain, downloaded 16 Oct 2026. Weather: aviationweather.gov. Maps: OpenStreetMap, OpenTopoMap, Esri, openAIP. None of this data is certified. Always use the current AIP Greece and official briefing for flight.</p>
         </div>
       </div>
     </section>
@@ -213,7 +215,8 @@
   </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="data.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="data.js?v=4"></script>
+<script src="points.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ const p3=a=>{const v=Math.round(norm(a))%360;return String(v===0?360:v).padStart
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const S={get(k,d){try{const v=localStorage.getItem('efb.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
          set(k,v){try{localStorage.setItem('efb.'+k,JSON.stringify(v))}catch(e){}}};
-const APTS=window.EFB_AIRPORTS||[], OTHER=window.EFB_OTHER||[], NAVAIDS=window.EFB_NAVAIDS||[];
+const APTS=window.EFB_AIRPORTS||[], OTHER=window.EFB_OTHER||[], NAVAIDS=window.EFB_NAVAIDS||[], AVFR=window.EFB_VFR||[], AIFR=window.EFB_IFR||[], AIRAC=window.EFB_AIRAC||'';
 const BY={};APTS.forEach(a=>BY[a.icao]=a);
 const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const dm=(v,lat)=>{const h=lat?(v>=0?'N':'S'):(v>=0?'E':'W');v=Math.abs(v);const d=Math.floor(v);return h+String(d).padStart(lat?2:3,'0')+' '+((v-d)*60).toFixed(1).padStart(4,'0')};
@@ -102,7 +102,7 @@ $('a_wx').onclick=async()=>{const b=$('a_wx');b.textContent='Loading…';try{awa
 /* ---------- airport detail ---------- */
 let circ=S.get('circ',{}),vrps=S.get('vrps',{});
 function renderApt(icao){
-  const a=BY[icao];if(!a)return;const E=ends(a);const c=circ[icao]||{};const V=vrps[icao]||[];
+  const a=BY[icao];if(!a)return;const E=ends(a);const c=circ[icao]||{};const V=vrps[icao]||[];const OV=AVFR.filter(v=>v[3]===icao);
   const tg=tglog.filter(l=>l.apt===icao);const tot=tg.reduce((s,l)=>s+l.tg+l.fs,0);
   $('apt_page').innerHTML=`
   <button type="button" class="back" data-go="apts">← Airports</button>
@@ -127,7 +127,9 @@ function renderApt(icao){
     <div class="fields two" style="margin-top:10px"><label>Circuit altitude ft<input id="c_alt" inputmode="numeric" value="${esc(c._alt||'')}" placeholder="e.g. 1000 AAL / 1100 AMSL"></label><label>General notes<input id="c_notes" value="${esc(c._notes||'')}" placeholder="Noise, restrictions, PPR…"></label></div>
     <div class="tbl"><table><thead><tr><th>Rwy</th><th>Direction</th><th>Notes</th></tr></thead><tbody>
       ${E.map(r=>`<tr><td><b>${esc(r.id)}</b></td><td><select data-cr="${esc(r.id)}" style="min-width:110px"><option value="">—</option><option ${c[r.id]==='Left'?'selected':''}>Left</option><option ${c[r.id]==='Right'?'selected':''}>Right</option><option ${c[r.id]==='No circuit'?'selected':''}>No circuit</option></select></td><td><input data-cn="${esc(r.id)}" value="${esc(c[r.id+'_n']||'')}" placeholder="Joining, crosswind, deadside…"></td></tr>`).join('')}</tbody></table></div></div>
-  <div class="card"><h2>VRPs and entry/exit</h2>
+  <div class="card"><div class="row between"><h2 style="margin:0">VFR reporting points · AIP</h2><span class="sub" style="margin:0">${esc(AIRAC)}</span></div>
+    ${OV.length?`<div class="tbl" style="margin-top:8px"><table><thead><tr><th>Point</th><th>Position</th><th></th></tr></thead><tbody>${OV.map((v,i)=>`<tr><td><b>${esc(v[0])}</b></td><td>${dm(v[1],1)} ${dm(v[2],0)}</td><td><button type="button" class="x" data-ov="${i}" title="Add to route">＋</button></td></tr>`).join('')}</tbody></table></div><p class="sub">From AD 2-${a.icao}-VFR. Points shown on the chart without published coordinates are not included.</p>`:`<p class="empty">AIP Greece publishes no VFR route chart with coordinates for ${a.icao}. Use the AD 2 visual approach chart, and add your school's points below.</p>`}</div>
+  <div class="card"><h2>Your VRPs and entry/exit notes</h2>
     ${V.length?`<div class="tbl"><table><thead><tr><th>Name</th><th>Position</th><th>Use</th><th></th></tr></thead><tbody>${V.map((v,i)=>`<tr><td><b>${esc(v.n)}</b></td><td>${dm(v.lat,1)} ${dm(v.lon,0)}</td><td class="wrap">${esc(v.note||'')}</td><td><button type="button" class="x" data-vr="${i}" title="Add to route">＋</button><button type="button" class="x" data-vd="${i}" aria-label="Delete VRP">×</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="empty">No VRPs yet. Add them from the AIP visual approach chart.</p>'}
     <div class="vrpform" style="margin-top:10px"><label>Name<input id="v_n" placeholder="e.g. VRP name"></label><label>Lat<input id="v_la" placeholder="N35 20.4"></label><label>Lon<input id="v_lo" placeholder="E025 10.8"></label><button type="button" id="v_add">Add VRP</button></div>
     <label style="margin-top:8px">Entry/exit use<input id="v_note" placeholder="e.g. entry for rwy 27, report at 2000 ft"></label></div>`;
@@ -156,6 +158,7 @@ $('apt_page').addEventListener('click',e=>{
     if(!n||!isFinite(la)||!isFinite(lo)){[$('v_n'),$('v_la'),$('v_lo')].forEach(i=>i.style.borderColor=(i.id==='v_n'?n:isFinite(parseCoord(i.value,i.id==='v_la')))?'':'var(--bad)');return}
     (vrps[icao]=vrps[icao]||[]).push({n,lat:la,lon:lo,note:$('v_note').value.trim()});S.set('vrps',vrps);renderApt(icao);drawVRPs()}
   if(b.dataset.vd!=null){vrps[icao].splice(+b.dataset.vd,1);S.set('vrps',vrps);renderApt(icao);drawVRPs()}
+  if(b.dataset.ov!=null){const v=AVFR.filter(x=>x[3]===icao)[+b.dataset.ov];addWpt({n:v[0],lat:v[1],lon:v[2]});b.textContent='✓'}
   if(b.dataset.vr!=null){const v=vrps[icao][+b.dataset.vr];addWpt({n:v.n,lat:v.lat,lon:v.lon});b.textContent='✓'}
 });
 $('apt_page').addEventListener('change',e=>{
@@ -238,7 +241,7 @@ $('n_wpts').addEventListener('click',e=>{const b=e.target.closest('button');if(!
 $('n_map').onclick=()=>{go('map');setTimeout(()=>{setRouteMode(true);fitRoute()},120)};
 
 /* ---------- map ---------- */
-let map=null,layers={},enrL,othL,navL,vrpL,routeL,ownL,routeMode=false,gpsWatch=null,firstFix=true;
+let map=null,layers={},enrL,othL,navL,avL,aiL,vrpL,routeL,ownL,routeMode=false,gpsWatch=null,firstFix=true;
 const BASES={
   topo:{n:'Terrain',u:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',o:{maxZoom:17,subdomains:'abc',attribution:'© OpenStreetMap contributors, SRTM · © OpenTopoMap (CC-BY-SA)'}},
   osm:{n:'Streets',u:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',o:{maxZoom:19,attribution:'© OpenStreetMap contributors'}},
@@ -261,6 +264,16 @@ function initMap(){
   navL=L.layerGroup();
   NAVAIDS.forEach(n=>{const vor=/VOR|TACAN/.test(n[2]);const m=L.marker([n[4],n[5]],{icon:L.divIcon({className:'',html:vor?'<svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,2 17,6 17,14 10,18 3,14 3,6" fill="none" stroke="#1f5fc4" stroke-width="2"/><circle cx="10" cy="10" r="2" fill="#1f5fc4"/></svg>':'<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" fill="none" stroke="#8a2be2" stroke-width="2" stroke-dasharray="2 2"/><circle cx="9" cy="9" r="2" fill="#8a2be2"/></svg>',iconSize:[20,20],iconAnchor:[10,10]})});
     m.bindTooltip(`${esc(n[0])} ${esc(n[2])} ${esc(n[3])}${vor?' MHz':' kHz'}<br>${esc(n[1])}`);m.on('click',()=>{if(routeMode)addWpt({n:n[0],lat:n[4],lon:n[5]})});navL.addLayer(m)});
+  avL=L.layerGroup();const seenV={};
+  AVFR.forEach(v=>{const k=v[0]+v[1]+v[2];if(seenV[k]){seenV[k].push(v[3]);return}seenV[k]=[v[3]];
+    const m=L.marker([v[1],v[2]],{icon:L.divIcon({className:'',html:`<div class="vrp-ic"></div><span class="pt-lbl vfr">${esc(v[0])}</span>`,iconSize:[16,14],iconAnchor:[8,10]})});
+    m.bindTooltip(()=>`<b>${esc(v[0])}</b> · VFR (${seenV[k].join(', ')})<br>${dm(v[1],1)} ${dm(v[2],0)}`,{direction:'top'});m.on('click',()=>{if(routeMode)addWpt({n:v[0],lat:v[1],lon:v[2]})});avL.addLayer(m)});
+  aiL=L.layerGroup();
+  AIFR.forEach(p=>{const m=L.marker([p[1],p[2]],{icon:L.divIcon({className:'',html:`<svg width="14" height="14" viewBox="0 0 14 14"><polygon points="7,1 13,12 1,12" fill="#fff" stroke="#3a3a3a" stroke-width="1.6"/></svg><span class="pt-lbl ifr">${esc(p[0])}</span>`,iconSize:[14,14],iconAnchor:[7,8]})});
+    m.bindTooltip(`<b>${esc(p[0])}</b> · ENR 4.4<br>${dm(p[1],1)} ${dm(p[2],0)}<br>${esc(p[3])}`,{direction:'top'});m.on('click',()=>{if(routeMode)addWpt({n:p[0],lat:p[1],lon:p[2]})});aiL.addLayer(m)});
+  if(S.get('lyr_avfr',true))avL.addTo(map);$('m_avfr').checked=S.get('lyr_avfr',true);
+  if(S.get('lyr_aifr',false))aiL.addTo(map);$('m_aifr').checked=S.get('lyr_aifr',false);
+  const lbl=()=>{const z=map.getZoom(),c=map.getContainer().classList;c.toggle('lbl-off',z<9);c.toggle('pts-small',z<8)};map.on('zoomend',lbl);lbl();
   if(S.get('lyr_nav',false))navL.addTo(map);$('m_nav').checked=S.get('lyr_nav',false);
   if(S.get('lyr_enr',true))enrL.addTo(map);if(S.get('lyr_oth',false))othL.addTo(map);if(S.get('lyr_vrp',true))vrpL.addTo(map);
   $('m_enr').checked=S.get('lyr_enr',true);$('m_oth').checked=S.get('lyr_oth',false);$('m_vrp').checked=S.get('lyr_vrp',true);
@@ -288,6 +301,8 @@ function setupOaip(){
 $('m_oaip').onchange=e=>{S.set('lyr_oaip',e.target.checked);if(!layers.oaip)return;e.target.checked?layers.oaip.addTo(map):map.removeLayer(layers.oaip)};
 $('m_enr').onchange=e=>{S.set('lyr_enr',e.target.checked);e.target.checked?enrL.addTo(map):map.removeLayer(enrL)};
 $('m_oth').onchange=e=>{S.set('lyr_oth',e.target.checked);e.target.checked?othL.addTo(map):map.removeLayer(othL)};
+$('m_avfr').onchange=e=>{S.set('lyr_avfr',e.target.checked);e.target.checked?avL.addTo(map):map.removeLayer(avL)};
+$('m_aifr').onchange=e=>{S.set('lyr_aifr',e.target.checked);e.target.checked?aiL.addTo(map):map.removeLayer(aiL)};
 $('m_nav').onchange=e=>{S.set('lyr_nav',e.target.checked);e.target.checked?navL.addTo(map):map.removeLayer(navL)};
 $('m_vrp').onchange=e=>{S.set('lyr_vrp',e.target.checked);e.target.checked?vrpL.addTo(map):map.removeLayer(vrpL)};
 $('m_layers').onclick=()=>{const p=$('m_layerpanel');p.hidden=!p.hidden;$('m_layers').setAttribute('aria-expanded',!p.hidden)};
@@ -313,7 +328,7 @@ let clrArm=0;$('rb_clear').onclick=()=>{if(Date.now()-clrArm>3000){clrArm=Date.n
 $('rb_log').onclick=()=>go('nav');
 /* search */
 $('m_search').addEventListener('input',()=>{const q=$('m_search').value.trim().toUpperCase();const r=$('m_results');if(q.length<2){r.hidden=true;return}
-  const hits=[...APTS.map(a=>[a.icao,a.name,a.lat,a.lon]),...OTHER,...NAVAIDS.map(n=>[n[0],n[1]+' '+n[2],n[4],n[5]])].filter(o=>o[0].includes(q)||o[1].toUpperCase().includes(q)).slice(0,8);
+  const hits=[...APTS.map(a=>[a.icao,a.name,a.lat,a.lon]),...OTHER,...NAVAIDS.map(n=>[n[0],n[1]+' '+n[2],n[4],n[5]]),...AVFR.map(v=>[v[0],'VFR point · '+v[3],v[1],v[2]]),...AIFR.map(p=>[p[0],'IFR/RNAV point',p[1],p[2]])].filter(o=>o[0].includes(q)||o[1].toUpperCase().includes(q)).slice(0,8);
   r.innerHTML=hits.map(h=>`<button type="button" data-ll="${h[2]},${h[3]}" data-i="${h[0]}"><b>${esc(h[0])}</b> ${esc(h[1])}</button>`).join('')||'<div class="sub" style="padding:10px">No match</div>';r.hidden=false});
 $('m_results').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const [la,lo]=b.dataset.ll.split(',').map(Number);map.setView([la,lo],12);$('m_results').hidden=true;$('m_search').value='';$('m_search').blur()});
 /* GPS */

@@ -191,3 +191,9 @@ svg text{font-family:var(--mono)}
 .pop .r{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .pop button{min-height:36px;padding:6px 10px;font-size:13px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.pt-lbl{position:absolute;left:12px;top:-4px;font:700 10px var(--mono);white-space:nowrap;padding:0 3px;border-radius:2px;pointer-events:none}
+.pt-lbl.vfr{color:#0b3d91;background:rgba(255,255,255,.8)}
+.pt-lbl.ifr{color:#222;background:rgba(255,255,255,.7)}
+.lbl-off .pt-lbl{display:none}
+.pts-small .vrp-ic{transform:scale(.6)}.pts-small .leaflet-marker-icon svg{transform:scale(.7)}
