@@ -11,12 +11,14 @@ async function page(u){const r=await fetch(u,{headers:UA,redirect:'follow'});if(
 /* chart image on a page, the valid-time buttons, and (wind) the flight-level menu */
 function parse(html,base){
   const img=(html.match(/<img[^>]*src\s*=\s*["']([^"']*\/methods\/get[A-Za-z]*Map[^"']*)["']/i)||[])[1];
-  const times=[...html.matchAll(/<a\s+class="btn[^"]*"\s+href="([^"]+)"\s*>\s*([^<]+?)\s*<\/a>/gi)].map(m=>({url:new URL(dec(m[1]),base).href,label:m[2].trim()}));
+  const times=[...html.matchAll(/<a\s+class="(btn[^"]*)"\s+href="([^"]+)"\s*>\s*([^<]+?)\s*<\/a>/gi)].map(m=>({cls:m[1],url:new URL(dec(m[2]),base).href,label:m[3].trim()}));
   const levels=[...html.matchAll(/<a href="(\?[^"]*type=winds(\d{3})[^"]*)">\s*FL\s*\d+\s*<\/a>/gi)].map(m=>({url:new URL(dec(m[1]),base).href,fl:m[2]}));
   return {img:img&&new URL(dec(img),base).href,times,levels}}
-async function walk(start,label,maxTimes){const p=parse(await page(start),start);const out=[];
-  const times=p.times.length?p.times.slice(0,maxTimes):[{url:start,label:''}];
-  for(const t of times){try{const q=t.url===start?p:parse(await page(t.url),t.url);if(q.img&&!out.some(c=>c.url===q.img))out.push({url:q.img,label:label+(t.label?' · valid '+t.label+'Z':''),pdf:false})}catch(e){}}
+/* the page opens on the latest chart; the other time buttons give the following ones (validity is printed on each chart) */
+async function walk(start,label,max){const p=parse(await page(start),start);const out=[];
+  const add=(img,t)=>{if(img&&out.length<max&&!out.some(c=>c.url===img))out.push({url:img,label:label+(t?' · '+t+' UTC':''),pdf:false})};
+  const act=(p.times.find(t=>/btn-primary/.test(t.cls))||{}).label;add(p.img,act);
+  for(const t of p.times){if(out.length>=max)break;try{add(parse(await page(t.url),t.url).img,t.label)}catch(e){}}
   return out}
 export async function onRequestGet({request}){const set=new URL(request.url).searchParams.get('set');const start=PAGES[set];
   if(!start)return json({error:'set must be swc, wind or pressure'},400);
