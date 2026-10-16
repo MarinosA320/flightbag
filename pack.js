@@ -87,15 +87,49 @@ function perfPages(){const K=P.calcPerf();if(!K)return[];const D=K.D,A=K.A;
 
 function navPage(){E.calcNav();const n=$('cea');return n?`<section class="ppage navp">${n.outerHTML.replace('id="cea"','')}</section>`:''}
 
-function build(which){const all=which.includes('all');let h='';
+/* ---------- weather and NOTAM briefing documents ---------- */
+function briefIds(){const v=id=>{const el=$(id);return el?el.value.trim().toUpperCase():''};
+  const W=E.wpts;const ids=[v('b_dep')||(W[0]&&E.BY[W[0].n]?W[0].n:''),v('b_dst')||(W.length>1&&E.BY[W[W.length-1].n]?W[W.length-1].n:''),v('b_alt')];
+  W.forEach(w=>{if(E.BY[w.n])ids.push(w.n)});return [...new Set(ids.filter(x=>/^[A-Z]{4}$/.test(x)))]}
+const docHead=(t,sub)=>`<div class="dh"><img src="afm/cea-logo.png" alt=""><div><b>${esc(t)}</b><span>${esc(sub)}</span></div><span class="dr">${esc((P.NL.pic||'').toUpperCase())}<br>${date()} · ${esc(P.NL.acft||'')}</span></div>`;
+const utc=s=>{const d=new Date(s);return isNaN(d)?esc(s||''):d.toISOString().slice(0,16).replace('T',' ')+'Z'};
+async function wxDoc(ids){let w={};try{w=await E.getWx(ids)}catch(e){}
+  const rows=ids.map(id=>{const x=w[id]||{};const a=E.BY[id];return `<section class="wxb"><h3>${id}${a?' · '+esc(a.name):''}</h3>
+    <p class="lbl">METAR${x.metar&&x.metar.fltCat?' · '+esc(x.metar.fltCat):''}</p><pre>${x.metar?esc(x.metar.rawOb):'No METAR available for this aerodrome.'}</pre>
+    <p class="lbl">TAF</p><pre>${x.taf?esc(x.taf.rawTAF).replace(/ (BECMG|TEMPO|FM\d|PROB\d\d)/g,'\n   $1'):'No TAF issued for this aerodrome.'}</pre></section>`}).join('');
+  return `<section class="ppage doc">${docHead('METAR / TAF','Source: aviationweather.gov · retrieved '+new Date().toISOString().slice(0,16).replace('T',' ')+'Z')}<div class="wxcols">${rows}</div></section>`}
+async function notamDoc(ids){const all=[...ids,'LGGG'];
+  if(!window.EFB_SERVER)return `<section class="ppage doc">${docHead('NOTAM briefing',all.join(' · '))}<p class="warnbox">NOTAMs are fetched by the school server. This copy of the app is not running on the school server, so NOTAMs could not be included. Obtain them from EUROCONTROL EAD or the Greek AIS and attach them to this pack.</p></section>`;
+  try{const r=await fetch('/api/notam?ids='+all.join(','),{cache:'no-store'});const j=await r.json();if(!r.ok)throw new Error(j.error||r.status);
+    const now=Date.now();
+    const sec=all.map(id=>{const L=(j.notams[id]||[]).slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));const a=E.BY[id];
+      return `<section class="nt"><h3>${id}${id==='LGGG'?' · Athinai FIR':a?' · '+esc(a.name):''} <small>${j.errors&&j.errors[id]?'· could not be retrieved: '+esc(j.errors[id]):L.length+' NOTAM'+(L.length===1?'':'s')}</small></h3>
+        ${L.map(n=>`<div class="nn"><b>${esc(n.id)}</b><pre>${esc(n.text)}</pre></div>`).join('')||(j.errors&&j.errors[id]?'':'<p class="sub">No NOTAMs in force.</p>')}</section>`}).join('');
+    return `<section class="ppage doc">${docHead('NOTAM briefing',`${all.join(' · ')} · ${j.source} · retrieved ${utc(j.fetched)}`)}<div class="ntcols">${sec}</div><p class="foot">Check the official pre-flight information bulletin (EUROCONTROL EAD / Greek AIS) before flight. This list is a convenience copy.</p></section>`}
+  catch(e){return `<section class="ppage doc">${docHead('NOTAM briefing',all.join(' · '))}<p class="warnbox">NOTAMs could not be retrieved (${esc(e.message||e)}). Obtain them from EUROCONTROL EAD or the Greek AIS and attach them to this pack.</p></section>`}}
+async function chartPages(){const SETS=[['swc','Significant weather chart'],['wind','Wind and temperature aloft'],['pressure','Surface pressure chart']];
+  if(!window.EFB_SERVER)return `<section class="ppage doc">${docHead('Weather charts','HNMS (EMY)')}<p class="warnbox">The HNMS charts are fetched by the school server. This copy of the app is not running on it, so the charts are not included. Print them from oldportal.emy.gr.</p></section>`;
+  let out='';for(const [k,t] of SETS){try{const r=await fetch('/api/wx/emy?set='+k,{cache:'no-store'});const j=await r.json();if(!r.ok)throw new Error(j.error);
+      const imgs=j.charts.filter(c=>!c.pdf);if(!imgs.length)throw new Error('no charts found on the HNMS page');
+      out+=imgs.map(c=>`<section class="ppage chart">${docHead(t,'HNMS (EMY) · '+(c.label||'')+' · retrieved '+utc(j.fetched))}<img class="wxc" src="/api/wx/img?u=${encodeURIComponent(c.url)}" alt="${esc(t)}"></section>`).join('')}
+    catch(e){out+=`<section class="ppage doc">${docHead(t,'HNMS (EMY)')}<p class="warnbox">${esc(t)} could not be retrieved (${esc(e.message||e)}).</p></section>`}}
+  return out}
+
+async function build(which){const all=which.includes('all');let h='';const ids=briefIds();
   if(all||which.includes('check'))h+=p1();
+  if(all||which.includes('brief')){h+=await wxDoc(ids);h+=await notamDoc(ids);h+=await chartPages()}
   if(all||which.includes('mb'))h+=p2();
   if(all||which.includes('perf'))h+=perfPages().join('');
   if(all||which.includes('nav'))h+=navPage();
   return h}
-function open(which){const box=$('pack');box.innerHTML=`<div class="packbar"><b>${which.includes('all')?'Preflight pack':'Print preview'}</b><span class="sub" style="margin:0">Exactly as the school's pages, filled in from the app.</span><div class="row"><button type="button" id="pk_close">Close</button><button type="button" class="primary" id="pk_print">Print / PDF</button></div></div><div class="packpages">${build(which)}</div>`;
-  document.body.classList.add('packview');$('pk_close').onclick=close;$('pk_print').onclick=()=>{document.body.classList.add('packprint');setTimeout(()=>window.print(),50)}}
+async function open(which){const box=$('pack');box.innerHTML=`<div class="packbar"><b>${which.includes('all')?'Preflight pack':'Print preview'}</b><span class="sub" style="margin:0" id="pk_state">Collecting weather, NOTAMs and charts…</span><div class="row"><button type="button" id="pk_close">Close</button><button type="button" class="primary" id="pk_print" disabled>Print / PDF</button></div></div><div class="packpages"></div>`;
+  document.body.classList.add('packview');$('pk_close').onclick=close;
+  const html=await build(which);if(!document.body.classList.contains('packview'))return;
+  box.querySelector('.packpages').innerHTML=html;$('pk_state').textContent="The school's pages, filled in from the app.";
+  const imgs=[...box.querySelectorAll('img')];await Promise.all(imgs.map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r})));
+  $('pk_print').disabled=false;$('pk_print').onclick=()=>{document.body.classList.add('packprint');setTimeout(()=>window.print(),50)}}
 function close(){document.body.classList.remove('packview','packprint');$('pack').innerHTML=''}
 window.addEventListener('afterprint',()=>document.body.classList.remove('packprint'));
 window.PACK={open,build,close};
+const bp=$('b_pack');if(bp)bp.onclick=()=>open(['brief']);
 })();

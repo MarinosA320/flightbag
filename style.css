@@ -341,3 +341,20 @@ body.packview #pack{display:block;position:fixed;inset:0;z-index:4000;background
   body.packprint .ppage.navp{padding:6mm}
   body.packprint .pin,body.packprint .pin.def{color:#000!important}
 }
+
+.ppage.doc,.ppage.chart{aspect-ratio:auto;padding:2.5%;color:#000;font:11px/1.35 Arial,Helvetica,sans-serif}
+.ppage.chart{aspect-ratio:841.92/595.32;display:flex;flex-direction:column}
+.ppage .wxc{flex:1;min-height:0;width:100%;object-fit:contain;position:static}
+.dh{display:flex;align-items:center;gap:12px;border-bottom:2px solid #8b1a1a;padding-bottom:6px;margin-bottom:10px}
+.dh img{position:static;width:150px;height:auto}
+.dh b{display:block;font-size:16px;color:#8b1a1a}.dh span{font-size:10px;color:#333}
+.dh .dr{margin-left:auto;text-align:right}
+.wxcols{columns:2;column-gap:18px}.ntcols{columns:2;column-gap:18px}
+.wxb,.nn{break-inside:avoid}.wxb h3,.nt h3{font-size:12px;margin:8px 0 4px;color:#000}.nt h3 small{font-weight:400;color:#444}
+.ppage h3,.ppage h2{text-transform:none!important;letter-spacing:0!important;font-family:Arial,Helvetica,sans-serif!important;color:#000!important}
+.wxb .lbl{margin:4px 0 0;font-weight:700;font-size:10px;color:#444}
+.ppage pre{white-space:pre-wrap;word-break:break-word;font:10px/1.35 "Courier New",monospace;margin:2px 0 6px;color:#000}
+.nn{border-top:1px solid #ccc;padding-top:3px}.nn b{font-size:10px}
+.warnbox{border:2px solid #b26a00;padding:10px;font-size:12px;color:#000}
+.foot{font-size:9px;color:#444;margin-top:10px}
+@media print{body.packprint .ppage.doc{height:auto;min-height:210mm;padding:8mm}body.packprint .ppage.chart{height:210mm;padding:6mm}}

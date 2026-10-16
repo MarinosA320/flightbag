@@ -17,3 +17,21 @@ Planning and situational-awareness aid only. Not certified. Not for navigation. 
 
 ## Files
 `index.html`, `style.css`, `app.js` (the app), `data.js` (airport data from OurAirports, unverified), `sw.js` (offline), `manifest.json` and icons.
+
+## School server (accounts, NOTAMs, HNMS charts)
+
+Sign-in, pilot accounts, NOTAMs and the HNMS (EMY) weather charts need the small server in `functions/`.
+It runs free on Cloudflare Pages. GitHub Pages cannot run it; on GitHub Pages the app still works, without those features.
+
+1. Create a free account at dash.cloudflare.com.
+2. Workers & Pages → Create → Pages → Connect to Git → choose `MarinosA320/flightbag`. Framework preset: None. Build command: empty. Output directory: `/`. Deploy.
+3. Workers & Pages → KV → Create namespace `flightbag-users`.
+4. Your Pages project → Settings → Bindings → Add → KV namespace: variable name `USERS`, namespace `flightbag-users`.
+5. Settings → Variables and Secrets → add three **Secrets**:
+   - `SESSION_SECRET`: any long random text (40+ characters)
+   - `ADMIN_EMAIL`: the first administrator's e-mail
+   - `ADMIN_CODE`: the first administrator's access code
+6. Deployments → Retry deployment. Open the `*.pages.dev` address and sign in with the administrator e-mail and code.
+7. Settings → Pilot accounts: create, view and delete accounts, or give someone a new access code.
+
+After this works, make the GitHub repository private and turn off GitHub Pages, so the school documents are only reachable after sign-in.

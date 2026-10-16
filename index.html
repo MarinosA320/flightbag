@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
 <div id="app">
@@ -137,7 +137,7 @@
           <label>Departure<input id="b_dep" placeholder="LGIR" maxlength="4"></label>
           <label>Destination<input id="b_dst" placeholder="LGSA" maxlength="4"></label>
           <label>Alternate<input id="b_alt" placeholder="LGST" maxlength="4"></label>
-        </div><div class="row end"><button type="button" class="primary" id="b_load">Load weather</button></div></div>
+        </div><div class="row end"><button type="button" id="b_pack">Briefing pack (METAR/TAF, NOTAMs, charts)</button><button type="button" class="primary" id="b_load">Load weather</button></div></div>
         <div class="card"><h2>Weather</h2><div id="b_wxout" class="wxout"><p class="sub">Enter aerodromes and load weather.</p></div></div>
         <div class="grid2">
           <div class="card"><h2>NOTAMs and AIP</h2><div id="b_notam"></div></div>
@@ -203,6 +203,11 @@
           <div class="row"><input id="s_key" type="password" placeholder="openAIP API key" autocomplete="off"><button type="button" id="s_keysave" class="primary">Save key</button><button type="button" id="s_keyclear">Remove</button></div>
           <p class="sub" id="s_keystat"></p>
         </div>
+        <div class="card" id="s_account" hidden><h2>Account</h2><p class="sub" id="s_who"></p><div class="row"><button type="button" id="s_logout">Sign out</button></div></div>
+        <div class="card" id="s_admin" hidden><div class="row between"><h2 style="margin:0">Pilot accounts</h2><button type="button" id="u_reload">Refresh</button></div>
+          <div class="fields four" style="margin-top:10px"><label>Name<input id="u_name" autocomplete="off"></label><label>E-mail<input id="u_email" type="email" autocomplete="off"></label><label>Access code<input id="u_code" autocomplete="off"></label><label>Role<select id="u_role"><option value="pilot">Pilot</option><option value="admin">Administrator</option></select></label></div>
+          <div class="row end"><button type="button" class="primary" id="u_add">Create account</button></div><p class="sub" id="u_msg"></p>
+          <div class="tbl"><table><thead><tr><th>Name</th><th>E-mail</th><th>Role</th><th>Created</th><th>Last sign-in</th><th></th></tr></thead><tbody id="u_list"></tbody></table></div></div>
         <div class="card"><h2>Display</h2>
           <div class="seg" id="s_theme"><button type="button" data-t="dark">Night</button><button type="button" data-t="light">Day</button><button type="button" data-t="auto">System</button></div>
         </div>
@@ -236,7 +241,8 @@
 <script src="app.js?v=11"></script>
 <script src="perfdata.js?v=12"></script>
 <script src="perfengine.js?v=12"></script>
-<script src="plan.js?v=12"></script>
-<script src="pack.js?v=12"></script>
+<script src="plan.js?v=13"></script>
+<script src="pack.js?v=13"></script>
+<script src="account.js?v=13"></script>
 </body>
 </html>

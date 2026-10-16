@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f14">
+<title>DA40 D Flight Bag · Sign in</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+:root{--bg:#0a0f14;--panel:#111921;--sunk:#0c1218;--line:#243240;--fg:#dce6ee;--muted:#8798a8;--accent:#36c5d8;--accent-ink:#04222a;--bad:#ff6464;color-scheme:dark}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.4 "Archivo",Arial,sans-serif;display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-left,0px))}
+form{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px 24px;display:flex;flex-direction:column;gap:14px}
+img{width:56px;height:56px}
+h1{font-size:26px;font-stretch:80%;margin:0}
+p{margin:0;color:var(--muted);font-size:14px}
+label{display:flex;flex-direction:column;gap:6px;font:600 12px "Archivo",sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+input{font:500 17px "JetBrains Mono",monospace;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--sunk);color:var(--fg);min-height:48px}
+input:focus{outline:2px solid var(--accent);outline-offset:1px}
+button{font:700 16px "Archivo",sans-serif;min-height:50px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button:disabled{opacity:.6}
+.err{color:var(--bad);font-weight:600;min-height:20px}
+</style>
+</head>
+<body>
+<form id="f" autocomplete="on">
+  <img src="icon.svg" alt="">
+  <h1>DA40 D Flight Bag</h1>
+  <p>Cretan Eagle Aviation training flight bag. Sign in with the e-mail and access code your school gave you.</p>
+  <label>E-mail<input id="email" type="email" autocomplete="username" required></label>
+  <label>Access code<input id="code" type="password" autocomplete="current-password" required></label>
+  <div class="err" id="err" role="alert"></div>
+  <button type="submit" id="go">Sign in</button>
+</form>
+<script>
+document.getElementById('f').addEventListener('submit',async e=>{e.preventDefault();const b=document.getElementById('go'),er=document.getElementById('err');b.disabled=true;er.textContent='';
+  try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value,code:document.getElementById('code').value})});
+    const j=await r.json().catch(()=>({}));if(r.ok){location.href='/'}else er.textContent=j.error||'Sign-in failed.'}
+  catch(x){er.textContent='No connection to the school server.'}b.disabled=false});
+</script>
+</body>
+</html>
