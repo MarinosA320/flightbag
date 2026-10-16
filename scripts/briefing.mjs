@@ -30,6 +30,9 @@ const write=(f,o)=>fs.writeFileSync(path.join(OUT,f),JSON.stringify(o));
       out.source=j.source||out.source;Object.assign(out.notams,j.notams||{});Object.assign(out.errors,j.errors||{})}
     catch(e){c.forEach(id=>out.errors[id]=String(e.message||e))}}
   write('notam.json',out);console.log('NOTAM',Object.values(out.notams).reduce((s,l)=>s+l.length,0),'errors',out.errors)}
+/* Keep a copy of the HNMS pages for troubleshooting the chart extraction */
+for(const [k,u] of Object.entries({swc:'http://oldportal.emy.gr/emy/en/aviation/aeronaftilia_xartes_simantikou_kairou',wind:'http://oldportal.emy.gr/emy/en/aviation/aeronaftilia_xartes_anemou_anoteris',pressure:'http://oldportal.emy.gr/emy/en/navigation/naftilia_xartes_radiofacsimile'}))
+  try{const r=await fetch(u,{headers:{'User-Agent':'Mozilla/5.0 DA40D-FlightBag'}});fs.writeFileSync(path.join(OUT,'emy',k+'.page.txt'),await r.text())}catch(e){}
 /* HNMS (EMY) charts: images are downloaded so the app never needs the http-only site */
 {const out={fetched:now(),sets:{}};
   for(const set of ['swc','wind','pressure']){const s=out.sets[set]={charts:[]};
