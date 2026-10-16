@@ -5,7 +5,9 @@ const SRC='https://notams.aim.faa.gov/notamSearch/search';
 async function one(id){const out=[];let offset=0,total=Infinity,guard=0;
   while(offset<total&&guard++<20){
     const body=new URLSearchParams({searchType:'0',designatorsForLocation:id,designatorForAccountable:'',latDegrees:'',latMinutes:'0',latSeconds:'0',longDegrees:'',longMinutes:'0',longSeconds:'0',radius:'10',sortColumns:'5 false',sortDirection:'true',designatorForNotamNumberSearch:'',notamNumber:'',radiusSearchOnDesignator:'false',radiusSearchDesignator:'',latitudeDirection:'N',longitudeDirection:'W',freeFormText:'',flightPathText:'',flightPathDivertAirfields:'',flightPathBuffer:'4',flightPathIncludeNavaids:'true',flightPathIncludeArtcc:'false',flightPathIncludeTfr:'true',flightPathIncludeRegulatory:'false',flightPathResultsType:'All NOTAMs',archiveDate:'',archiveDesignator:'',offset:String(offset),notamsOnly:'false',filters:'',minRunwayLength:'',minRunwayWidth:'',runwaySurfaceTypes:'',predefinedAbraka:'',predefinedDabra:'',flightPathAddlBuffer:'',recaptchaToken:''});
-    const r=await fetch(SRC,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 DA40D-FlightBag','Accept':'application/json'},body});
+    let r,tries=0;while(true){if(offset)await new Promise(z=>setTimeout(z,1200)); /* gentle paging: the service rate-limits */
+      r=await fetch(SRC,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','User-Agent':'Mozilla/5.0 DA40D-FlightBag','Accept':'application/json'},body});
+      if((r.status===403||r.status===429)&&tries++<3){await new Promise(z=>setTimeout(z,6000*tries));continue}break}
     if(!r.ok)throw new Error('NOTAM service HTTP '+r.status);
     const j=await r.json();const L=j.notamList||[];total=j.totalNotamCount||0;
     for(const n of L)out.push({id:n.notamNumber,loc:n.icaoId||n.facilityDesignator||id,start:n.startDate,end:n.endDate,issued:n.issueDate,text:n.icaoMessage||n.traditionalMessage||n.traditionalMessageFrom4thWord||'',keyword:n.keyword||''});
