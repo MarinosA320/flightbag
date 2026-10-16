@@ -9,7 +9,7 @@ const p3=a=>{const v=Math.round(norm(a))%360;return String(v===0?360:v).padStart
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
 const S={get(k,d){try{const v=localStorage.getItem('efb.'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
          set(k,v){try{localStorage.setItem('efb.'+k,JSON.stringify(v))}catch(e){}}};
-const APTS=window.EFB_AIRPORTS||[], OTHER=window.EFB_OTHER||[];
+const APTS=window.EFB_AIRPORTS||[], OTHER=window.EFB_OTHER||[], NAVAIDS=window.EFB_NAVAIDS||[];
 const BY={};APTS.forEach(a=>BY[a.icao]=a);
 const todayISO=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
 const dm=(v,lat)=>{const h=lat?(v>=0?'N':'S'):(v>=0?'E':'W');v=Math.abs(v);const d=Math.floor(v);return h+String(d).padStart(lat?2:3,'0')+' '+((v-d)*60).toFixed(1).padStart(4,'0')};
@@ -91,6 +91,7 @@ const SFC={ASP:'Asphalt',ASPH:'Asphalt',CON:'Concrete',GRS:'Grass',UNK:'Unknown'
 /* ---------- airports list ---------- */
 function longest(a){return Math.max(0,...(a.rwys||[]).map(r=>r.len_ft||0))}
 function renderApts(){
+  $('a_count').textContent=APTS.length;
   $('a_list').innerHTML=APTS.map(a=>{const w=wxCache[a.icao];const cat=w&&w.metar&&w.metar.fltCat;
     return `<button type="button" class="apt" data-i="${a.icao}"><div class="top"><b>${a.icao}</b>${cat?`<span class="cat ${esc(cat)}">${esc(cat)}</span>`:''}</div><div class="nm">${esc(a.name)}</div>
     <div class="meta">${(a.rwys||[]).map(r=>esc(r.le+'/'+r.he)).join(' · ')} · ${Math.round(longest(a)/3.28084)} m · ${a.elev} ft</div></button>`}).join('');
@@ -237,7 +238,7 @@ $('n_wpts').addEventListener('click',e=>{const b=e.target.closest('button');if(!
 $('n_map').onclick=()=>{go('map');setTimeout(()=>{setRouteMode(true);fitRoute()},120)};
 
 /* ---------- map ---------- */
-let map=null,layers={},enrL,othL,vrpL,routeL,ownL,routeMode=false,gpsWatch=null,firstFix=true;
+let map=null,layers={},enrL,othL,navL,vrpL,routeL,ownL,routeMode=false,gpsWatch=null,firstFix=true;
 const BASES={
   topo:{n:'Terrain',u:'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',o:{maxZoom:17,subdomains:'abc',attribution:'© OpenStreetMap contributors, SRTM · © OpenTopoMap (CC-BY-SA)'}},
   osm:{n:'Streets',u:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',o:{maxZoom:19,attribution:'© OpenStreetMap contributors'}},
@@ -257,6 +258,10 @@ function initMap(){
     (a.rwys||[]).forEach(r=>{if(r.le_lat&&r.he_lat)enrL.addLayer(L.polyline([[r.le_lat,r.le_lon],[r.he_lat,r.he_lon]],{color:'#0b6e80',weight:4,opacity:.9,interactive:false}))});});
   OTHER.forEach(o=>{const m=L.marker([o[2],o[3]],{icon:L.divIcon({className:'',html:'<div class="oth-ic"></div>',iconSize:[10,10],iconAnchor:[5,5]})});
     m.bindTooltip(`${o[0]} · ${o[1]}`);m.on('click',()=>{if(routeMode)addWpt({n:o[0],lat:o[2],lon:o[3]})});othL.addLayer(m)});
+  navL=L.layerGroup();
+  NAVAIDS.forEach(n=>{const vor=/VOR|TACAN/.test(n[2]);const m=L.marker([n[4],n[5]],{icon:L.divIcon({className:'',html:vor?'<svg width="20" height="20" viewBox="0 0 20 20"><polygon points="10,2 17,6 17,14 10,18 3,14 3,6" fill="none" stroke="#1f5fc4" stroke-width="2"/><circle cx="10" cy="10" r="2" fill="#1f5fc4"/></svg>':'<svg width="18" height="18" viewBox="0 0 18 18"><circle cx="9" cy="9" r="7" fill="none" stroke="#8a2be2" stroke-width="2" stroke-dasharray="2 2"/><circle cx="9" cy="9" r="2" fill="#8a2be2"/></svg>',iconSize:[20,20],iconAnchor:[10,10]})});
+    m.bindTooltip(`${esc(n[0])} ${esc(n[2])} ${esc(n[3])}${vor?' MHz':' kHz'}<br>${esc(n[1])}`);m.on('click',()=>{if(routeMode)addWpt({n:n[0],lat:n[4],lon:n[5]})});navL.addLayer(m)});
+  if(S.get('lyr_nav',false))navL.addTo(map);$('m_nav').checked=S.get('lyr_nav',false);
   if(S.get('lyr_enr',true))enrL.addTo(map);if(S.get('lyr_oth',false))othL.addTo(map);if(S.get('lyr_vrp',true))vrpL.addTo(map);
   $('m_enr').checked=S.get('lyr_enr',true);$('m_oth').checked=S.get('lyr_oth',false);$('m_vrp').checked=S.get('lyr_vrp',true);
   setupOaip();drawVRPs();drawRoute();updRouteBar();
@@ -283,6 +288,7 @@ function setupOaip(){
 $('m_oaip').onchange=e=>{S.set('lyr_oaip',e.target.checked);if(!layers.oaip)return;e.target.checked?layers.oaip.addTo(map):map.removeLayer(layers.oaip)};
 $('m_enr').onchange=e=>{S.set('lyr_enr',e.target.checked);e.target.checked?enrL.addTo(map):map.removeLayer(enrL)};
 $('m_oth').onchange=e=>{S.set('lyr_oth',e.target.checked);e.target.checked?othL.addTo(map):map.removeLayer(othL)};
+$('m_nav').onchange=e=>{S.set('lyr_nav',e.target.checked);e.target.checked?navL.addTo(map):map.removeLayer(navL)};
 $('m_vrp').onchange=e=>{S.set('lyr_vrp',e.target.checked);e.target.checked?vrpL.addTo(map):map.removeLayer(vrpL)};
 $('m_layers').onclick=()=>{const p=$('m_layerpanel');p.hidden=!p.hidden;$('m_layers').setAttribute('aria-expanded',!p.hidden)};
 function drawVRPs(){if(!vrpL)return;vrpL.clearLayers();Object.entries(vrps).forEach(([ic,list])=>list.forEach(v=>{
@@ -307,7 +313,7 @@ let clrArm=0;$('rb_clear').onclick=()=>{if(Date.now()-clrArm>3000){clrArm=Date.n
 $('rb_log').onclick=()=>go('nav');
 /* search */
 $('m_search').addEventListener('input',()=>{const q=$('m_search').value.trim().toUpperCase();const r=$('m_results');if(q.length<2){r.hidden=true;return}
-  const hits=[...APTS.map(a=>[a.icao,a.name,a.lat,a.lon]),...OTHER].filter(o=>o[0].includes(q)||o[1].toUpperCase().includes(q)).slice(0,8);
+  const hits=[...APTS.map(a=>[a.icao,a.name,a.lat,a.lon]),...OTHER,...NAVAIDS.map(n=>[n[0],n[1]+' '+n[2],n[4],n[5]])].filter(o=>o[0].includes(q)||o[1].toUpperCase().includes(q)).slice(0,8);
   r.innerHTML=hits.map(h=>`<button type="button" data-ll="${h[2]},${h[3]}" data-i="${h[0]}"><b>${esc(h[0])}</b> ${esc(h[1])}</button>`).join('')||'<div class="sub" style="padding:10px">No match</div>';r.hidden=false});
 $('m_results').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const [la,lo]=b.dataset.ll.split(',').map(Number);map.setView([la,lo],12);$('m_results').hidden=true;$('m_search').value='';$('m_search').blur()});
 /* GPS */

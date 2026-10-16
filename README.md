@@ -1,6 +1,6 @@
 # DA40 D Flight Bag
 
-Training flight bag for a DA40 D school flying 22 Greek aerodromes. Map with openAIP chart layers, airport pages, circuit counter and landing log, navlog, briefing, calculators and risk assessment.
+Training flight bag for a DA40 D school flying 24 Greek aerodromes. Map with openAIP chart layers, airport pages, circuit counter and landing log, navlog, briefing, calculators and risk assessment.
 
 Planning and situational-awareness aid only. Not certified. Not for navigation. Always use the current AIP Greece and an official briefing.
 

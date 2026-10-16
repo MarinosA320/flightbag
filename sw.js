@@ -1,5 +1,5 @@
 /* Offline support: app files cached on install; map tiles cached as you view them. */
-const V='efb-v1', TILES='efb-tiles-v1', MAXT=4000;
+const V='efb-v2', TILES='efb-tiles-v1', MAXT=4000;
 const SHELL=['./','index.html','style.css','app.js','data.js','manifest.json','icon.svg','icon-192.png','icon-512.png',
  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});

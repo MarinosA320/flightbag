@@ -41,6 +41,7 @@
         <label class="sw"><input type="checkbox" id="m_oaip"> openAIP aviation chart <span class="hint" id="m_oaip_hint"></span></label>
         <label class="sw"><input type="checkbox" id="m_enr" checked> Training airports</label>
         <label class="sw"><input type="checkbox" id="m_oth"> Other Greek airfields</label>
+        <label class="sw"><input type="checkbox" id="m_nav"> VOR / NDB navaids</label>
         <label class="sw"><input type="checkbox" id="m_vrp" checked> Your VRPs</label>
       </div>
       <div id="m_gpsbar" class="gpsbar" hidden>
@@ -60,7 +61,7 @@
     <!-- AIRPORTS -->
     <section class="view scroll" id="v-apts" data-view="apts" hidden>
       <div class="page">
-        <header class="ph"><div><h1>Training airports</h1><p class="sub">22 aerodromes · runways and frequencies from OurAirports, unverified. Check AIP Greece AD 2 before use.</p></div>
+        <header class="ph"><div><h1>Training airports</h1><p class="sub"><span id="a_count"></span> aerodromes · runways and frequencies from OurAirports, unverified. Check AIP Greece AD 2 before use.</p></div>
           <button type="button" id="a_wx">Load METARs</button></header>
         <div id="a_list" class="aptgrid"></div>
       </div>
