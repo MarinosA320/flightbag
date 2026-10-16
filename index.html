@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>DA40 D Flight Bag</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <nav id="rail" aria-label="Sections"></nav>
+  <div id="views">
+
+    <!-- MAP -->
+    <section class="view" id="v-map" data-view="map">
+      <div id="map" aria-label="Map"></div>
+      <div class="map-top">
+        <div class="search">
+          <input id="m_search" placeholder="Airport ICAO or name" autocomplete="off" aria-label="Find airport">
+          <div id="m_results" class="results" hidden></div>
+        </div>
+        <div class="map-btns">
+          <button class="mbtn" id="m_route" type="button" aria-pressed="false">Plan route</button>
+          <button class="mbtn" id="m_gps" type="button" aria-pressed="false">My position</button>
+          <button class="mbtn" id="m_layers" type="button" aria-expanded="false">Layers</button>
+        </div>
+      </div>
+      <div id="m_layerpanel" class="sheet layerpanel" hidden>
+        <h3>Base map</h3>
+        <div class="seg" id="m_base"></div>
+        <h3>Overlays</h3>
+        <label class="sw"><input type="checkbox" id="m_oaip"> openAIP aviation chart <span class="hint" id="m_oaip_hint"></span></label>
+        <label class="sw"><input type="checkbox" id="m_enr" checked> Training airports</label>
+        <label class="sw"><input type="checkbox" id="m_oth"> Other Greek airfields</label>
+        <label class="sw"><input type="checkbox" id="m_vrp" checked> Your VRPs</label>
+      </div>
+      <div id="m_gpsbar" class="gpsbar" hidden>
+        <div><span>GS</span><b id="g_gs">—</b><i>kt</i></div>
+        <div><span>TRK</span><b id="g_trk">—</b><i>°T</i></div>
+        <div><span>ALT</span><b id="g_alt">—</b><i>ft GPS</i></div>
+        <div><span>ACC</span><b id="g_acc">—</b><i>m</i></div>
+      </div>
+      <div id="m_routebar" class="routebar" hidden>
+        <div class="rb-sum"><b id="rb_pts">0 points</b><span id="rb_tot"></span></div>
+        <div class="rb-hint">Tap the map or an airport to add a point. Drag points to move them.</div>
+        <div class="row"><button type="button" id="rb_undo">Undo</button><button type="button" id="rb_clear">Clear</button><button type="button" class="primary" id="rb_log">Navlog</button></div>
+      </div>
+      <div class="disclaimer">Situational awareness only. Not for navigation.</div>
+    </section>
+
+    <!-- AIRPORTS -->
+    <section class="view scroll" id="v-apts" data-view="apts" hidden>
+      <div class="page">
+        <header class="ph"><div><h1>Training airports</h1><p class="sub">22 aerodromes · runways and frequencies from OurAirports, unverified. Check AIP Greece AD 2 before use.</p></div>
+          <button type="button" id="a_wx">Load METARs</button></header>
+        <div id="a_list" class="aptgrid"></div>
+      </div>
+    </section>
+
+    <!-- AIRPORT DETAIL -->
+    <section class="view scroll" id="v-apt" data-view="apt" hidden>
+      <div class="page" id="apt_page"></div>
+    </section>
+
+    <!-- CIRCUITS / T&G -->
+    <section class="view scroll" id="v-tg" data-view="tg" hidden>
+      <div class="page">
+        <header class="ph"><div><h1>Circuits</h1><p class="sub">Count landings as you fly, then save the session to your log.</p></div></header>
+        <div class="tgcounter card">
+          <div class="fields three">
+            <label>Airport<select id="t_apt"></select></label>
+            <label>Runway<select id="t_rwy"></select></label>
+            <label>Role<select id="t_role"><option>Dual</option><option>Solo</option><option>PIC</option></select></label>
+          </div>
+          <div class="counters">
+            <div class="ctr"><span>Touch &amp; go</span><b id="t_tg">0</b><div class="row"><button type="button" data-c="tg" data-d="-1" aria-label="Remove touch and go">−</button><button type="button" class="big" data-c="tg" data-d="1">+ T&amp;G</button></div></div>
+            <div class="ctr"><span>Full stop</span><b id="t_fs">0</b><div class="row"><button type="button" data-c="fs" data-d="-1" aria-label="Remove full stop">−</button><button type="button" class="big" data-c="fs" data-d="1">+ Full stop</button></div></div>
+            <div class="ctr"><span>Go-around</span><b id="t_ga">0</b><div class="row"><button type="button" data-c="ga" data-d="-1" aria-label="Remove go-around">−</button><button type="button" class="big" data-c="ga" data-d="1">+ Go-around</button></div></div>
+          </div>
+          <div class="fields two">
+            <label>Session started<input id="t_start" readonly></label>
+            <label>Notes<input id="t_notes" placeholder="Flapless, glide approach, crosswind…"></label>
+          </div>
+          <div class="row end"><button type="button" id="t_reset">Reset counters</button><button type="button" class="primary" id="t_save">Save session</button></div>
+          <p class="toast" id="t_toast" hidden></p>
+        </div>
+        <div class="card">
+          <div class="row between"><h2>Landing log</h2><div class="row"><button type="button" id="t_csv">Export CSV</button></div></div>
+          <div id="t_totals" class="totals"></div>
+          <div class="tbl"><table><thead><tr><th>Date</th><th>Airport</th><th>Rwy</th><th>Role</th><th>T&amp;G</th><th>Full stop</th><th>G/A</th><th>Notes</th><th></th></tr></thead><tbody id="t_log"></tbody></table></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NAVLOG -->
+    <section class="view scroll" id="v-nav" data-view="nav" hidden>
+      <div class="page">
+        <header class="ph"><div><h1>Navlog</h1><p class="sub">Built from the route on the map. Great-circle tracks, wind triangle per leg.</p></div><button type="button" id="n_map">Edit on map</button></header>
+        <div class="card"><div class="fields four">
+          <label>TAS kt<input id="n_tas" inputmode="decimal" value="120"></label>
+          <label>Wind from °T<input id="n_wd" inputmode="decimal" value="320"></label>
+          <label>Wind kt<input id="n_ws" inputmode="decimal" value="15"></label>
+          <label>Variation °E<input id="n_var" inputmode="decimal" value="5"></label>
+        </div><p class="sub">TAS is your planning value. The fuel column unlocks with the AFM cruise table.</p></div>
+        <div class="card"><h2>Waypoints</h2><div class="tbl"><table><thead><tr><th>#</th><th>Name</th><th>Lat</th><th>Lon</th><th></th></tr></thead><tbody id="n_wpts"></tbody></table></div>
+          <p class="sub">Coordinates take decimal (35.339) or degrees and minutes (N35 20.4).</p></div>
+        <div class="card"><h2>Legs</h2><div class="tbl"><table><thead><tr><th>Leg</th><th>TC</th><th>WCA</th><th>TH</th><th>MH</th><th>Dist</th><th>GS</th><th>ETE</th><th>Fuel</th></tr></thead><tbody id="n_log"></tbody></table></div></div>
+      </div>
+    </section>
+
+    <!-- BRIEF -->
+    <section class="view scroll" id="v-brief" data-view="brief" hidden>
+      <div class="page">
+        <header class="ph"><div><h1>Briefing</h1><p class="sub">Live METAR and TAF where the source allows it. NOTAMs always come from the official source.</p></div><div class="briefstat"><b id="b_count">0/0</b><span id="b_pill" class="pill warn">Incomplete</span></div></header>
+        <div class="card"><div class="fields five">
+          <label>Date<input id="b_date" type="date"></label>
+          <label>Reg<input id="b_reg" placeholder="SX-…"></label>
+          <label>Departure<input id="b_dep" placeholder="LGIR" maxlength="4"></label>
+          <label>Destination<input id="b_dst" placeholder="LGSA" maxlength="4"></label>
+          <label>Alternate<input id="b_alt" placeholder="LGST" maxlength="4"></label>
+        </div><div class="row end"><button type="button" class="primary" id="b_load">Load weather</button></div></div>
+        <div class="card"><h2>Weather</h2><div id="b_wxout" class="wxout"><p class="sub">Enter aerodromes and load weather.</p></div></div>
+        <div class="grid2">
+          <div class="card"><h2>NOTAMs and AIP</h2><div id="b_notam"></div></div>
+          <div class="card"><h2>Charts</h2><div id="b_charts"></div></div>
+        </div>
+        <div class="card"><h2>Your school's links</h2><div id="b_custom"></div>
+          <div class="row"><input id="b_cname" placeholder="Name"><input id="b_curl" placeholder="https://…"><button type="button" id="b_cadd">Add link</button></div></div>
+        <div class="row end"><button type="button" id="b_reset">Clear ticks</button></div>
+      </div>
+    </section>
+
+    <!-- TOOLS -->
+    <section class="view scroll" id="v-tools" data-view="tools" hidden>
+      <div class="page">
+        <header class="ph"><div><h1>Calculators</h1></div></header>
+        <div class="grid2">
+          <div class="card"><h2>Wind components</h2>
+            <div class="fields four"><label>Runway<input id="w_rwy" value="27"></label><label>Wind °<input id="w_dir" inputmode="decimal" value="300"></label><label>Speed kt<input id="w_spd" inputmode="decimal" value="18"></label><label>Gust kt<input id="w_gst" inputmode="decimal" placeholder="—"></label></div>
+            <div class="fields two"><label>X-wind limit kt<input id="w_lim" inputmode="decimal" placeholder="AFM / school"></label></div>
+            <div class="windrow"><svg id="w_svg" viewBox="0 0 200 200" aria-label="Wind diagram"></svg><div id="w_out" class="readouts"></div></div>
+            <p class="sub">Use one reference for both: METAR/TAF winds are true, ATIS/tower winds are magnetic.</p>
+          </div>
+          <div class="card"><h2>Density altitude</h2>
+            <div class="fields three"><label>Elevation ft<input id="d_elev" inputmode="decimal" value="115"></label><label>QNH hPa<input id="d_qnh" inputmode="decimal" value="1009"></label><label>OAT °C<input id="d_oat" inputmode="decimal" value="31"></label></div>
+            <div id="d_out" class="readouts"></div>
+            <p class="sub">27 ft per hPa, 120 ft per °C from ISA.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RISK -->
+    <section class="view scroll" id="v-risk" data-view="risk" hidden>
+      <div class="page">
+        <header class="ph"><div><h1>Risk assessment</h1><p class="sub">Draft PAVE scoring. Your school sets the final scores and thresholds.</p></div><div class="briefstat"><b id="k_total">0</b><span id="k_pill" class="pill good">Go</span></div></header>
+        <p class="verdict" id="k_msg"></p>
+        <div class="grid2">
+          <div class="card"><h2>IMSAFE</h2><p class="sub">Any tick means you do not fly today.</p><div id="k_imsafe"></div></div>
+          <div class="card"><h2>Thresholds</h2><div class="fields two"><label>Caution from<input id="k_t1" inputmode="numeric" value="11"></label><label>No-go from<input id="k_t2" inputmode="numeric" value="21"></label></div>
+            <div class="row end"><button type="button" id="k_reset">Reset answers</button></div></div>
+        </div>
+        <div class="card" id="k_items"></div>
+      </div>
+    </section>
+
+    <!-- AIRCRAFT -->
+    <section class="view scroll" id="v-acft" data-view="acft" hidden>
+      <div class="page">
+        <header class="ph"><div><h1>DA40 D</h1><p class="sub">These pages calculate from the AFM. They stay locked until the figures are entered and checked against the book.</p></div></header>
+        <div class="grid2">
+          <div class="card lockcard"><span class="pill warn">Needs AFM data</span><h2>Mass and balance</h2><ul><li>Empty mass, arm and moment for each registration</li><li>Station arms: front seats, rear seats, baggage, fuel (AFM §6)</li><li>Mass limits and CG envelope corners</li><li>Fitted tanks: standard or long-range</li></ul></div>
+          <div class="card lockcard"><span class="pill warn">Needs AFM data</span><h2>Performance</h2><ul><li>Take-off and landing tables by mass, PA and temperature (AFM §5)</li><li>Wind, slope and grass corrections</li><li>Climb table and your school's safety factors</li></ul></div>
+          <div class="card lockcard"><span class="pill warn">Needs AFM data</span><h2>Fuel</h2><ul><li>Cruise table: power, fuel flow and TAS by altitude</li><li>Usable fuel, taxi allowance, reserve policy</li></ul></div>
+          <div class="card lockcard"><span class="pill warn">Needs AFM data</span><h2>Checklists</h2><ul><li>Normal and emergency procedures (AFM §3 and §4) or your school's checklist, transcribed word for word</li></ul></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view scroll" id="v-set" data-view="set" hidden>
+      <div class="page">
+        <header class="ph"><div><h1>Settings</h1></div></header>
+        <div class="card"><h2>openAIP</h2>
+          <p class="sub">Paste your free openAIP API key to show airspace and the aviation chart layer. It stays on this device.</p>
+          <div class="row"><input id="s_key" type="password" placeholder="openAIP API key" autocomplete="off"><button type="button" id="s_keysave" class="primary">Save key</button><button type="button" id="s_keyclear">Remove</button></div>
+          <p class="sub" id="s_keystat"></p>
+        </div>
+        <div class="card"><h2>Display</h2>
+          <div class="seg" id="s_theme"><button type="button" data-t="dark">Night</button><button type="button" data-t="light">Day</button><button type="button" data-t="auto">System</button></div>
+        </div>
+        <div class="card"><h2>Backup</h2>
+          <p class="sub">Your log, VRPs, circuits and settings live on this device. Export a backup to move them or keep them safe.</p>
+          <div class="row"><button type="button" id="s_export">Export backup</button><label class="btn">Import backup<input type="file" id="s_import" accept="application/json" hidden></label></div>
+          <p class="sub" id="s_bstat"></p>
+        </div>
+        <div class="card"><h2>Data sources</h2>
+          <p class="sub">Airports, runways and frequencies: OurAirports, public domain, downloaded 16 Oct 2026. Weather: aviationweather.gov. Maps: OpenStreetMap, OpenTopoMap, Esri, openAIP. None of this data is certified. Always use the current AIP Greece and official briefing for flight.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
