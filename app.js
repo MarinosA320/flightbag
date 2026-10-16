@@ -542,7 +542,7 @@ function restoreOverlays(){const st=S.get('ovl',{});Object.values(st).forEach(o=
 function viewImage(url,w,h,title){cvCur=null;$('cv').hidden=false;$('cv_ovl').hidden=true;$('cv_title').textContent=title;$('cv_sub').textContent='';$('cv_pg').textContent='';$('cv_prev').hidden=$('cv_next').hidden=true;
   if(!cv){cv=L.map('cv_map',{crs:L.CRS.Simple,minZoom:-4,maxZoom:3,zoomSnap:.25,attributionControl:false,zoomControl:false});L.control.zoom({position:'bottomright'}).addTo(cv);cv.on('click',e=>{if(alignState&&alignState.step%2===0)alignChartClick(e.latlng)})}
   if(cvImg)cv.removeLayer(cvImg);const b=[[-h,0],[0,w]];cvImg=L.imageOverlay(url,b).addTo(cv);setTimeout(()=>{cv.invalidateSize();cv.fitBounds(b)},30)}
-window.EFB={viewImage,get wpts(){return wpts},legs,S,BY,APTS,NAVAIDS,esc,num,p3,fmtT,go,todayISO,dm,saveRoute,gc,calcNav,
+window.EFB={viewImage,getWx,get wpts(){return wpts},legs,S,BY,APTS,NAVAIDS,esc,num,p3,fmtT,go,todayISO,dm,saveRoute,gc,calcNav,
   get ownPos(){return window._ownPos||null}};
 /* ---------- boot ---------- */
 renderBrief();drawWind();calcDA();score();keyStat();

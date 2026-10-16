@@ -137,7 +137,7 @@ $('cea').addEventListener('change',e=>{const t=e.target;const v=t.value;
 $('cea').addEventListener('input',e=>{if(e.target.dataset.h==='rem'){NL.rem=e.target.value;saveNL()}});
 $('cea').addEventListener('focusin',e=>{const t=e.target;if((t.classList.contains('ata')||t.classList.contains('ts'))&&!t.value){t.value=nowHM();t.dispatchEvent(new Event('change',{bubbles:true}))}});
 $('nl_ff').value=NL.ff||'';$('nl_ff').addEventListener('input',e=>{NL.ff=e.target.value;saveNL();E.calcNav()});
-$('nl_print').onclick=()=>window.print();
+$('nl_print').onclick=()=>printSheets(['nav']);
 $('nl_clear').onclick=e=>{const b=e.target;if(b.textContent!=='Tap again to clear'){b.textContent='Tap again to clear';setTimeout(()=>b.textContent='New blank log',3000);return}
   NL={ff:NL.ff,pic:NL.pic,acft:NL.acft};saveNL();E.wpts.forEach(w=>{['ata','msa','alt','tas','wd','ws'].forEach(k=>delete w[k])});E.saveRoute();E.calcNav();b.textContent='New blank log'};
 function renderAtis(){}
@@ -255,7 +255,7 @@ function afmDiagram(pts){
 }
 $('ac_mb').addEventListener('input',e=>{const id=e.target.id;if(!id||!id.startsWith('mb_')||id==='mb_acft')return;MB[id.slice(3)]=e.target.value;saveMB();clearTimeout(renderMB._t);renderMB._t=setTimeout(()=>{const f=document.activeElement&&document.activeElement.id;renderMB();if(f&&$(f)){$(f).focus();const v=$(f).value;try{$(f).setSelectionRange(v.length,v.length)}catch(x){}}},500)});
 $('ac_mb').addEventListener('change',e=>{if(e.target.id==='mb_acft'){NL.acft=e.target.value;const f=FLEET.find(x=>x.reg===NL.acft);if(f&&f.ff)NL.ff=f.ff;saveNL();renderMB()}});
-$('ac_mb').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='mb_print'){window.print();return}if(b.dataset.go)tab(b.dataset.go);if(b.id==='mb_usetrip'){MB.trip=(NL._route*num(NL.ff)/60).toFixed(1);saveMB();renderMB()}});
+$('ac_mb').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='mb_print'){printSheets(['mb']);return}if(b.dataset.go)tab(b.dataset.go);if(b.id==='mb_usetrip'){MB.trip=(NL._route*num(NL.ff)/60).toFixed(1);saveMB();renderMB()}});
 
 /* ---------- fleet ---------- */
 function renderFleet(){
@@ -278,63 +278,145 @@ $('ac_fleet').addEventListener('click',e=>{const b=e.target.closest('button');if
   if(b.id==='fl_ex'){if(!FLEET.some(f=>f.reg==='EXAMPLE')){FLEET.push({reg:'EXAMPLE',em:'735',arm:'2.476',emom:'1820',cap:'',bagmax:''});saveFleet()}renderFleet()}
   if(b.dataset.del!=null){const i=+b.dataset.del;if(b.textContent!=='Delete?'){b.textContent='Delete?';setTimeout(()=>{if(b.isConnected)b.textContent='×'},3000);return}FLEET.splice(i,1);saveFleet();renderFleet()}});
 
-/* ---------- performance ---------- */
-let PF=S.get('pf',{});const savePF=()=>S.set('pf',PF);
-function renderPerf(){
-  const r=FLEET.length?mbCalc():null;const W=E.wpts;const dep=W[0]&&E.BY[W[0].n]?W[0].n:(PF.apt||'LGIR');const dst=W.length>1&&E.BY[W[W.length-1].n]?W[W.length-1].n:dep;
-  const apt=E.BY[PF.apt||dep]||E.BY.LGIR;PF.apt=apt.icao;
-  const ends=[];(apt.rwys||[]).forEach(x=>{const h=x.hdg!=null?x.hdg:num(x.le)*10;ends.push({id:x.le,h,len:x.len_ft});if(x.he)ends.push({id:x.he,h:(h+180)%360,len:x.len_ft})});
-  const rw=ends.find(x=>x.id===PF.rwy)||ends[0]||{id:'',h:0,len:0};
-  const elev=apt.elev,qnh=num(PF.qnh),oat=num(PF.oat),wd=num(PF.wd),ws=num(PF.ws)||0;
-  const pa=isFinite(qnh)?elev+(1013.25-qnh)*27:NaN,isa=15-2*pa/1000,da=pa+120*(oat-isa);
-  const hw=isFinite(wd)?ws*Math.cos(rad(wd-rw.h)):NaN,xw=isFinite(wd)?ws*Math.sin(rad(wd-rw.h)):NaN;
-  const tom=r?r.to[0]:NaN,ldm=r?r.ld[0]:NaN;const fac=(v,base,grass,slope,sf)=>{v=num(v);if(!isFinite(v))return NaN;return v*(1+(grass||0)/100)*(1+Math.max(0,slope||0)*5/100)*(sf||1)};
-  const sf=num(PF.sf)||1;const gT=AFM.grassTO[PF.grass||'none'],gL=AFM.grassLDG[PF.grass||'none'];
-  const toda=rw.len?Math.round(rw.len/3.28084):NaN;
-  const slopeUp=num(PF.slope)||0;
-  const tod=fac(PF.tod,0,0,slopeUp,sf),todr=fac(PF.todr,0,gT,0,sf),ld=fac(PF.ld,0,0,-slopeUp,sf),ldr=fac(PF.ldr,0,gL,0,sf);
-  const res=(v,lim)=>isFinite(v)?`<b class="${isFinite(lim)&&v>lim?'badtxt':''}">${Math.round(v)} m</b>${isFinite(lim)?` <span class="sub">of ${lim} m</span>`:''}`:'—';
-  $('ac_perf').innerHTML=`<div class="grid2"><div class="card"><h2>Conditions</h2>
-   <div class="fields three">
-    <label>Aerodrome<select id="pf_apt">${E.APTS.map(x=>`<option ${x.icao===apt.icao?'selected':''}>${x.icao}</option>`).join('')}</select></label>
-    <label>Runway<select id="pf_rwy">${ends.map(x=>`<option ${x.id===rw.id?'selected':''}>${esc(x.id)}</option>`).join('')}</select></label>
-    <label>QNH hPa<input id="pf_qnh" inputmode="decimal" value="${esc(PF.qnh||'')}"></label>
-    <label>OAT °C<input id="pf_oat" inputmode="decimal" value="${esc(PF.oat||'')}"></label>
-    <label>Wind °<input id="pf_wd" inputmode="decimal" value="${esc(PF.wd||'')}"></label>
-    <label>Wind kt<input id="pf_ws" inputmode="decimal" value="${esc(PF.ws||'')}"></label>
-    <label>Surface<select id="pf_grass"><option value="none">Paved</option><option value="short" ${PF.grass==='short'?'selected':''}>Grass ≤5 cm</option><option value="mid" ${PF.grass==='mid'?'selected':''}>Grass 5–10 cm</option><option value="long" ${PF.grass==='long'?'selected':''}>Grass &gt;10 cm</option></select></label>
-    <label>Uphill slope % (T/O)<input id="pf_slope" inputmode="decimal" value="${esc(PF.slope||'')}" placeholder="0"></label>
-    <label>School safety factor<input id="pf_sf" inputmode="decimal" value="${esc(PF.sf||'')}" placeholder="1.0"></label>
+/* ---------- performance (computed from digitised AFM charts) ---------- */
+let PF=S.get('pf2',{});const savePF=()=>S.set('pf2',PF);
+const PE=window.PerfEngine&&window.EFB_PERF?window.PerfEngine(window.EFB_PERF):null;
+const DECL=window.EFB_DECLARED||{};
+const GRASS={none:'Paved',short:'Grass ≤ 5 cm',mid:'Grass 5–10 cm',long:'Grass > 10 cm'};
+function rwyList(icao){const a=E.BY[icao];const d=DECL[icao]||[];const oa=[];
+  (a&&a.rwys||[]).forEach(x=>{const h=x.hdg!=null?x.hdg:num(x.le)*10+5;oa.push({id:x.le,h});if(x.he)oa.push({id:x.he,h:(h+180)%360})});
+  const L=(d.length?d:oa.map(o=>({rwy:o.id}))).map(r=>{const m=oa.find(o=>o.id===r.rwy);const n=num(String(r.rwy).replace(/[LRC]/,''));
+    return Object.assign({},r,{id:r.rwy,h:m?m.h:(n*10+5)%360,approx:!m})});
+  return L}
+function side(k){const W=E.wpts;const def=k==='dep'?(W[0]&&E.BY[W[0].n]?W[0].n:'LGIR'):(W.length>1&&E.BY[W[W.length-1].n]?W[W.length-1].n:(W[0]&&E.BY[W[0].n]?W[0].n:'LGIR'));
+  const s=PF[k]=PF[k]||{};if(!s.apt||!E.BY[s.apt])s.apt=def;const rl=rwyList(s.apt);const wd0=num(s.wd),ws0=num(s.ws)||0;
+  let rw=s.rwyUser?rl.find(r=>r.id===s.rwy):null;
+  if(!rw){rw=rl.slice().sort((p,q)=>isFinite(wd0)?Math.cos(rad(wd0-q.h))-Math.cos(rad(wd0-p.h)):0)[0]||{id:'',h:0}}
+  s.rwy=rw.id;
+  const a=E.BY[s.apt];const qnh=num(s.qnh),oat=num(s.oat),wd=num(s.wd),ws=num(s.ws)||0;
+  const pa=isFinite(qnh)?a.elev+(1013.25-qnh)*27:a.elev,isa=15-2*pa/1000,T=isFinite(oat)?oat:isa,da=pa+120*(T-isa);
+  const hw=isFinite(wd)?ws*Math.cos(rad(wd-rw.h)):0,xw=isFinite(wd)?ws*Math.sin(rad(wd-rw.h)):0;
+  const gust=num(s.wg);const hwF=hw>=0?hw*0.5:hw*1.5; /* conservative factoring: 50 % headwind, 150 % tailwind */
+  return {s,a,rl,rw,pa,T,isa,da,hw,xw,hwUsed:PF.factorWind!=='off'?hwF:hw,qnhSet:isFinite(qnh),oatSet:isFinite(oat)}}
+function calcPerf(){
+  if(!PE)return null;const r=FLEET.length?mbCalc():null;const tom=r?Math.max(r.to[0],0):1150,ldm=r?r.ld[0]:1150;
+  const D=side('dep'),A=side('arr');const sf=num(PF.sf)||1;
+  const g=k=>PF[k]||'none';
+  const to50=PE.dist('to50',D.pa,D.T,tom,D.hwUsed),tor=PE.dist('toroll',D.pa,D.T,tom,D.hwUsed);
+  const flaps=PF.flaps==='up'?'up':'ldg';
+  const l50=PE.dist(flaps==='up'?'ldg50up':'ldg50',A.pa,A.T,ldm,A.hwUsed),lr=PE.dist(flaps==='up'?'ldgrollup':'ldgroll',A.pa,A.T,ldm,A.hwUsed);
+  const grT=AFM.grassTO[g('dep_sfc')]/100,grL=AFM.grassLDG[g('arr_sfc')]/100;
+  const slT=Math.max(0,num(D.s.slope)||0)*0.05,slL=Math.max(0,-(num(A.s.slope)||0))*0.05;
+  const torC=tor.v*(1+grT),to50C=(to50.v+tor.v*grT)*(1+slT),lrC=lr.v*(1+grL),l50C=(l50.v+lr.v*grL)*(1+slL);
+  const climbTO=PE.climb('climbTO',D.pa,D.T,tom);
+  const cpa=num(PF.cpa)||4000,coat=isFinite(num(PF.coat))?num(PF.coat):15-2*cpa/1000;const climbCR=PE.climb('climbCR',cpa,coat,tom);
+  const load=num(PF.load)||60,ff=PE.fuelflow(load);
+  const rows=[
+    {n:'Take-off distance over 50 ft',chart:to50.v,corr:to50C,f:to50C*sf,avail:D.rw.toda,availN:'TODA',warn:to50.warn},
+    {n:'Take-off ground roll',chart:tor.v,corr:torC,f:torC*sf,avail:D.rw.tora,availN:'TORA',warn:tor.warn},
+    {n:`Landing distance over 50 ft · flaps ${flaps.toUpperCase()}`,chart:l50.v,corr:l50C,f:l50C*sf,avail:A.rw.lda,availN:'LDA',warn:l50.warn},
+    {n:`Landing ground roll · flaps ${flaps.toUpperCase()}`,chart:lr.v,corr:lrC,f:lrC*sf,avail:A.rw.lda,availN:'LDA',warn:lr.warn}];
+  rows.forEach(x=>{x.block=x.warn.some(w=>/tailwind|above 1150/.test(w))});
+  return {r,tom,ldm,D,A,sf,rows,climbTO,climbCR,cpa,coat,load,ff,flaps}}
+function sideCard(k,title,X){const s=X.s;return `<div class="card"><div class="row between"><h2 style="margin:0">${title}</h2><button type="button" data-metar="${k}">Load METAR</button></div>
+   <div class="fields three" style="margin-top:10px">
+    <label>Aerodrome<select data-p="${k}.apt">${E.APTS.map(x=>`<option ${x.icao===s.apt?'selected':''}>${x.icao}</option>`).join('')}</select></label>
+    <label>Runway<select data-p="${k}.rwy">${X.rl.map(x=>`<option ${x.id===s.rwy?'selected':''}>${esc(x.id)}</option>`).join('')}</select></label>
+    <label>Surface<select data-p="${k}_sfc">${Object.entries(GRASS).map(([v,t])=>`<option value="${v}" ${PF[k+'_sfc']===v?'selected':''}>${t}</option>`).join('')}</select></label>
+    <label>QNH hPa<input data-p="${k}.qnh" inputmode="decimal" value="${esc(s.qnh||'')}" placeholder="1013"></label>
+    <label>OAT °C<input data-p="${k}.oat" inputmode="decimal" value="${esc(s.oat||'')}" placeholder="ISA ${Math.round(X.isa)}"></label>
+    <label>Slope % ${k==='dep'?'(+ uphill)':'(− downhill)'}<input data-p="${k}.slope" inputmode="decimal" value="${esc(s.slope||'')}" placeholder="0"></label>
+    <label>Wind from °T<input data-p="${k}.wd" inputmode="decimal" value="${esc(s.wd||'')}"></label>
+    <label>Wind kt<input data-p="${k}.ws" inputmode="decimal" value="${esc(s.ws||'')}"></label>
+    <label>&nbsp;<span class="sub" style="margin:0;text-transform:none;letter-spacing:0">${X.s.metar?esc(X.s.metar):''}</span></label>
    </div>
    <div class="facts">
-    <div class="ro"><div class="k">Pressure alt</div><div class="v">${isFinite(pa)?Math.round(pa):'—'}<small> ft</small></div></div>
-    <div class="ro"><div class="k">Density alt</div><div class="v">${isFinite(da)?Math.round(da):'—'}<small> ft</small></div></div>
-    <div class="ro"><div class="k">${hw<0?'Tailwind':'Headwind'}</div><div class="v"${hw<0?' style="color:var(--bad)"':''}>${isFinite(hw)?Math.abs(hw).toFixed(0):'—'}<small> kt</small></div></div>
-    <div class="ro"><div class="k">Crosswind</div><div class="v">${isFinite(xw)?Math.abs(xw).toFixed(0):'—'}<small> kt</small></div></div>
-    <div class="ro"><div class="k">T/O mass</div><div class="v">${isFinite(tom)?Math.round(tom):'—'}<small> kg</small></div></div>
-    <div class="ro"><div class="k">LDG mass</div><div class="v">${isFinite(ldm)?Math.round(ldm):'—'}<small> kg</small></div></div>
-   </div><p class="sub">Enter these values on the AFM charts below (charts use 1013 hPa pressure altitude). For tailwind use the tailwind lines. Masses come from Mass &amp; balance.</p></div>
-   <div class="card"><h2>Results from the charts</h2>
-    <div class="fields two">
-     <label>T/O distance 50 ft (m)<input id="pf_tod" inputmode="decimal" value="${esc(PF.tod||'')}"></label>
-     <label>T/O ground roll (m)<input id="pf_todr" inputmode="decimal" value="${esc(PF.todr||'')}"></label>
-     <label>LDG distance 50 ft (m)<input id="pf_ld" inputmode="decimal" value="${esc(PF.ld||'')}"></label>
-     <label>LDG ground roll (m)<input id="pf_ldr" inputmode="decimal" value="${esc(PF.ldr||'')}"></label>
-    </div>
-    <div class="tbl"><table><thead><tr><th>Corrected (surface, slope, × safety factor)</th><th>Required</th></tr></thead><tbody>
-     <tr><td>Take-off distance over 50 ft</td><td>${res(tod,toda)}</td></tr><tr><td>Take-off ground roll</td><td>${res(todr,toda)}</td></tr>
-     <tr><td>Landing distance over 50 ft</td><td>${res(ld,toda)}</td></tr><tr><td>Landing ground roll</td><td>${res(ldr,toda)}</td></tr></tbody></table></div>
-    <p class="sub">Runway ${esc(rw.id)} length ${isFinite(toda)?toda+' m':'unknown'} (OurAirports). Use declared TORA/TODA/LDA from AIP AD 2.13. Corrections: grass T/O roll +10/15/25 %, LDG roll +5/15/25 %; 2 % uphill ≈ +10 % T/O distance (AFM 5.3.7, 5.3.11). Reference: landing ISA MSL 1150 kg flaps LDG ${AFM.ldgRef.dist} m, roll ${AFM.ldgRef.roll} m.</p></div></div>
-   <div class="card"><h2>AFM charts</h2><div class="chips">${[['to-charts','Take-off distance & roll'],['to-notes','Take-off notes 5.3.7'],['climb','Climb performance'],['da-fuelflow','Density altitude & fuel flow'],['ldg-flapsldg','Landing · flaps LDG'],['ldg-flapsup','Landing · flaps UP'],['ldg-notes','Landing notes 5.3.11'],['mb','Mass & balance 6.4']].map(([f,n])=>`<button type="button" class="chip" data-afm="${f}">${n}</button>`).join('')}</div></div>`;
+    <div class="ro"><div class="k">Elevation</div><div class="v">${X.a.elev}<small> ft</small></div></div>
+    <div class="ro"><div class="k">Pressure alt</div><div class="v">${Math.round(X.pa)}<small> ft</small></div></div>
+    <div class="ro"><div class="k">Density alt</div><div class="v">${Math.round(X.da)}<small> ft</small></div></div>
+    <div class="ro"><div class="k">${X.hw<0?'Tailwind':'Headwind'}</div><div class="v"${X.hw<0?' style="color:var(--bad)"':''}>${Math.abs(X.hw).toFixed(0)}<small> kt</small></div></div>
+    <div class="ro"><div class="k">Crosswind</div><div class="v">${Math.abs(X.xw).toFixed(0)}<small> kt</small></div></div>
+    <div class="ro"><div class="k">${k==='dep'?'TORA / TODA':'LDA'}</div><div class="v">${k==='dep'?`${X.rw.tora||'—'}<small>/</small>${X.rw.toda||'—'}`:(X.rw.lda||'—')}<small> m</small></div></div>
+   </div>${X.qnhSet&&X.oatSet?'':'<p class="sub">QNH or OAT not entered: 1013 hPa and ISA temperature are being used.</p>'}${X.rw.approx?'<p class="sub">Runway heading estimated from the runway number.</p>':''}</div>`}
+function renderPerf(){
+  const box=$('ac_perf');if(!PE){box.innerHTML='<div class="card"><p>Performance data failed to load. Reopen the app.</p></div>';return}
+  const P=calcPerf();const st=x=>x.block?'bad':!isFinite(x.avail)?'':x.f>x.avail?'bad':x.f>x.avail*0.8?'warn':'good';
+  const anyBad=P.rows.some(x=>st(x)==='bad');
+  box.innerHTML=`<div class="card"><div class="row between"><div><h2 style="margin:0">Performance · ${esc(P.r?P.r.a.reg:'no aircraft')}</h2>
+     <p class="sub">T/O mass ${Math.round(P.tom)} kg · LDG mass ${Math.round(P.ldm)} kg (from Mass &amp; balance)</p></div>
+     <div class="row"><span class="pill ${anyBad?'bad':'good'}">${anyBad?'Check runway / conditions':'Runways adequate'}</span><button type="button" class="primary" id="pf_print">Print / PDF</button></div></div>
+    <div class="fields four" style="margin-top:10px">
+     <label>Landing flaps<select data-p="flaps"><option value="ldg">LDG</option><option value="up" ${P.flaps==='up'?'selected':''}>UP</option></select></label>
+     <label>Wind factoring<select data-p="factorWind"><option value="on">50 % head / 150 % tail</option><option value="off" ${PF.factorWind==='off'?'selected':''}>Reported wind</option></select></label>
+     <label>School safety factor<input data-p="sf" inputmode="decimal" value="${esc(PF.sf||'')}" placeholder="1.0"></label>
+     <label>Cruise power %<input data-p="load" inputmode="decimal" value="${esc(PF.load||'')}" placeholder="60"></label>
+    </div></div>
+   <div class="grid2">${sideCard('dep','Departure',P.D)}${sideCard('arr','Arrival',P.A)}</div>
+   <div class="card"><h2>Distances</h2><div class="tbl"><table class="perft"><thead><tr><th>Item</th><th>AFM chart</th><th>+ surface / slope</th><th>× ${P.sf}</th><th>Available</th><th>Margin</th><th></th></tr></thead><tbody>
+    ${P.rows.map(x=>`<tr><td class="wrap">${x.n}${x.warn.length?`<span class="sub" style="display:block;color:var(--warn)">${esc(x.warn.join('; '))}</span>`:''}</td><td>${Math.round(x.chart)} m</td><td>${Math.round(x.corr)} m</td><td><b>${Math.round(x.f)} m</b></td><td>${isFinite(x.avail)?x.avail+' m <span class="sub">'+x.availN+'</span>':'—'}</td><td>${isFinite(x.avail)?Math.round(x.avail-x.f)+' m':'—'}</td><td>${st(x)?`<span class="pill ${st(x)}">${x.block?'Not allowed':st(x)==='bad'?'Too long':st(x)==='warn'?'Over 80 %':'OK'}</span>`:''}</td></tr>`).join('')}
+   </tbody></table></div>
+   <p class="sub">Charts digitised from AFM 5.3.7 and 5.3.11. Each reproduces the AFM's own worked example within +1 % to +5 % (always on the long side). Grass adds ${AFM.grassTO[PF.dep_sfc||'none']} % T/O roll and ${AFM.grassLDG[PF.arr_sfc||'none']} % landing roll; slope adds 5 % per 1 %. Wet or soft surfaces are not covered: allow extra. Declared distances from AIP AD 2.13.</p></div>
+   <div class="grid2"><div class="card"><h2>Climb and fuel</h2>
+     <div class="fields three"><label>Cruise PA ft<input data-p="cpa" inputmode="decimal" value="${esc(PF.cpa||'')}" placeholder="4000"></label><label>Cruise OAT °C<input data-p="coat" inputmode="decimal" value="${esc(PF.coat||'')}" placeholder="ISA ${Math.round(15-2*P.cpa/1000)}"></label><label>&nbsp;<button type="button" id="pf_ff">Use ${P.ff.toFixed(1)} L/h in navlog</button></label></div>
+     <div class="facts">
+      <div class="ro"><div class="k">Take-off climb</div><div class="v">${Math.round(P.climbTO/10)*10}<small> ft/min</small></div></div>
+      <div class="ro"><div class="k">Cruise climb at ${P.cpa} ft</div><div class="v">${Math.round(P.climbCR/10)*10}<small> ft/min</small></div></div>
+      <div class="ro"><div class="k">Fuel flow ${P.load} %</div><div class="v">${P.ff.toFixed(1)}<small> L/h</small></div></div>
+      <div class="ro"><div class="k">vR / climb</div><div class="v">${Math.round(interp(AFM.vr,P.tom))}/${Math.round(interp(AFM.climb,P.tom))}<small> KIAS</small></div></div>
+      <div class="ro"><div class="k">Approach ${P.flaps.toUpperCase()}</div><div class="v">${Math.round(interp(AFM.vapp,P.ldm))}<small> KIAS</small></div></div>
+     </div><p class="sub">Climb rates at departure conditions and T/O mass. The school sheet plans ≈ 19 L/h; the AFM fuel flow chart gives ${P.ff.toFixed(1)} L/h at ${P.load} % load.</p></div>
+    <div class="card"><h2>AFM charts</h2><div class="chips">${[['to-charts','Take-off distance & roll'],['to-notes','Take-off notes 5.3.7'],['climb','Climb performance'],['da-fuelflow','Density altitude & fuel flow'],['ldg-flapsldg','Landing · flaps LDG'],['ldg-flapsup','Landing · flaps UP'],['ldg-notes','Landing notes 5.3.11'],['mb','Mass & balance 6.4']].map(([f,n])=>`<button type="button" class="chip" data-afm="${f}">${n}</button>`).join('')}</div>
+     <p class="sub">Open a chart to cross-check any result against the book.</p></div></div>`;
+  window._lastPerf=P;
 }
-$('ac_perf').addEventListener('change',e=>{const id=e.target.id;if(!id||!id.startsWith('pf_'))return;PF[id.slice(3)]=e.target.value;if(id==='pf_apt')PF.rwy='';savePF();renderPerf()});
-$('ac_perf').addEventListener('click',e=>{const b=e.target.closest('[data-afm]');if(!b)return;openAFM(b.dataset.afm,b.textContent)});
+$('ac_perf').addEventListener('change',e=>{const k=e.target.dataset.p;if(!k)return;const v=e.target.value.trim();
+  if(k.includes('.')){const [a,b]=k.split('.');PF[a]=PF[a]||{};PF[a][b]=v;if(b==='apt'){PF[a].rwy='';PF[a].rwyUser=false;PF[a].metar=''}if(b==='rwy')PF[a].rwyUser=true;}else PF[k]=v;savePF();renderPerf()});
+$('ac_perf').addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.afm){openAFM(b.dataset.afm,b.textContent);return}
+  if(b.id==='pf_print'){printSheets(['perf']);return}
+  if(b.id==='pf_ff'){NL.ff=window._lastPerf.ff.toFixed(1);saveNL();b.textContent='Navlog fuel flow set';return}
+  if(b.dataset.metar){const k=b.dataset.metar,s=PF[k];b.textContent='Loading…';
+    try{const w=(await E.getWx([s.apt]))[s.apt];const m=w&&w.metar;if(!m){b.textContent='No METAR';return}
+      if(m.altim)s.qnh=String(Math.round(m.altim));if(m.temp!=null)s.oat=String(Math.round(m.temp));if(isFinite(num(m.wdir))){s.wd=String(m.wdir);s.ws=String(m.wspd||0)}else{s.wd='';s.ws=String(m.wspd||0)}
+      s.metar=m.rawOb;savePF();renderPerf()}catch(x){b.textContent='Weather unavailable'}}});
 function openAFM(f,title){const img=new Image();img.onload=()=>E.viewImage('afm/'+f+'.webp',img.naturalWidth,img.naturalHeight,'DA40 D AFM · '+title);img.src='afm/'+f+'.webp'}
+
+/* ---------- printable sheets and the preflight pack ---------- */
+function perfSheet(){const P=window._lastPerf||(renderPerf(),window._lastPerf);if(!P)return'';
+  const sd=(t,X)=>`<tr><th>${t}</th><td>${X.s.apt} RWY ${esc(X.s.rwy)}</td><td>QNH ${esc(X.s.qnh||'1013*')}</td><td>OAT ${esc(X.s.oat||Math.round(X.isa)+'*')} °C</td><td>PA ${Math.round(X.pa)} ft</td><td>DA ${Math.round(X.da)} ft</td><td>${X.hw<0?'Tail':'Head'} ${Math.abs(X.hw).toFixed(0)} kt · X ${Math.abs(X.xw).toFixed(0)} kt</td><td>${GRASS[PF[(t==='Departure'?'dep':'arr')+'_sfc']||'none']}</td></tr>`;
+  return `<div class="psheet"><div class="ps-hd"><b>DA 40 D · Pre-flight Performance</b><span>${esc(P.r?P.r.a.reg:'')} · ${esc((NL.date||E.todayISO()).split('-').reverse().join('/'))}${NL.pic?' · '+esc(NL.pic):''}</span></div>
+   <table class="pt">${sd('Departure',P.D)}${sd('Arrival',P.A)}</table>
+   <p class="ps-n">T/O mass ${Math.round(P.tom)} kg · LDG mass ${Math.round(P.ldm)} kg · wind ${PF.factorWind==='off'?'as reported':'factored 50 % head / 150 % tail'} · safety factor ${P.sf}${(!P.D.qnhSet||!P.D.oatSet||!P.A.qnhSet||!P.A.oatSet)?' · * standard values used':''}</p>
+   <table class="pt"><tr><th>Item</th><th>AFM chart</th><th>Corrected</th><th>Factored</th><th>Available</th><th>Margin</th></tr>
+    ${P.rows.map(x=>`<tr><td style="text-align:left">${x.n}</td><td>${Math.round(x.chart)} m</td><td>${Math.round(x.corr)} m</td><td><b>${Math.round(x.f)} m</b></td><td>${isFinite(x.avail)?x.avail+' m '+x.availN:'—'}</td><td>${isFinite(x.avail)?Math.round(x.avail-x.f)+' m':'—'}</td></tr>`).join('')}</table>
+   <table class="pt"><tr><th>Take-off climb</th><td>${Math.round(P.climbTO/10)*10} ft/min</td><th>Cruise climb (${P.cpa} ft)</th><td>${Math.round(P.climbCR/10)*10} ft/min</td><th>Fuel flow ${P.load} %</th><td>${P.ff.toFixed(1)} L/h</td></tr>
+    <tr><th>vR</th><td>${Math.round(interp(AFM.vr,P.tom))} KIAS</td><th>Initial climb</th><td>${Math.round(interp(AFM.climb,P.tom))} KIAS</td><th>Approach (${P.flaps.toUpperCase()})</th><td>${Math.round(interp(AFM.vapp,P.ldm))} KIAS</td></tr></table>
+   <p class="ps-n">Values from AFM 5.3.7, 5.3.8 and 5.3.11 charts as digitised by DA40 D Flight Bag; each chart's worked example is reproduced within +1 % to +5 %. Grass and slope corrections per AFM notes. Wet or soft surfaces not included. Declared distances: AIP Greece AD 2.13, AMDT 09/26.</p>
+   <div class="ps-sig"><span>Student signature</span><span>Instructor signature</span></div></div>`}
+function checklistSheet(){const st=S.get('pp',{t:'dual',c:{}});const L={dual:'Dual training flight',solo:'First / local solo',nav:'Navigation solo'};
+  const items=(window._PP_LISTS||{})[st.t]||[];const rk=S.get('risk',{});
+  return `<div class="psheet"><div class="ps-hd"><b>Student Preflight Checklist and Guide</b><span>${L[st.t]||''}</span></div>
+   <table class="pt"><tr><th>Full name</th><td>${esc(NL.pic||'')}</td><th>Date</th><td>${esc((NL.date||E.todayISO()).split('-').reverse().join('/'))}</td><th>Aircraft</th><td>${esc(NL.acft||'')}</td><th>Type of flight</th><td>${L[st.t]||''}</td></tr></table>
+   <table class="pt">${items.map((x,i)=>`<tr><td style="width:6%">${i+1}</td><td style="text-align:left">${esc(x)}</td><td style="width:8%">${st.c[st.t+i]?'✓':''}</td></tr>`).join('')}</table>
+   <p class="ps-n">Risk assessment: ${esc(document.getElementById('k_total')?document.getElementById('k_total').textContent:'')} points · ${esc(document.getElementById('k_pill')?document.getElementById('k_pill').textContent:'')}</p>
+   <p class="ps-n">NOTE</p><div style="border:1px solid #000;height:120px"></div></div>`}
+function printSheets(which){
+  const pack=$('pack');let html='';
+  if(which.includes('check'))html+=checklistSheet();
+  if(which.includes('mb')){renderMB();const m=document.querySelector('#ac_mb .mbp');if(m)html+=`<div class="psheet">${m.outerHTML}</div>`}
+  if(which.includes('perf'))html+=perfSheet();
+  if(which.includes('nav')){E.calcNav();const n=$('cea');if(n)html+=`<div class="psheet">${n.outerHTML.replace('id="cea"','')}</div>`}
+  pack.innerHTML=html;document.body.classList.add('packprint');
+  setTimeout(()=>{window.print();setTimeout(()=>document.body.classList.remove('packprint'),400)},60);
+}
+window.addEventListener('afterprint',()=>document.body.classList.remove('packprint'));
+window.EFB.printPack=()=>printSheets(['check','mb','perf','nav']);
 
 /* ---------- tabs ---------- */
 function tab(t){document.querySelectorAll('#ac_tabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.t===t));['mb','perf','fleet'].forEach(k=>$('ac_'+k).hidden=k!==t);
   if(t==='mb')renderMB();if(t==='perf')renderPerf();if(t==='fleet')renderFleet();S.set('actab',t)}
 $('ac_tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(b)tab(b.dataset.t)});
+$('ac_pack').onclick=()=>window.EFB.printPack();
 window.addEventListener('hashchange',()=>{if(location.hash==='#acft')tab(S.get('actab','mb'));if(location.hash==='#nav'){fillHeader();renderAtis();E.calcNav()}});
 
 window.PLAN={renderLog,AFM,mbCalc,check};
@@ -343,7 +425,7 @@ fillHeader();renderAtis();tab(S.get('actab','mb'));E.calcNav();
 /* ---------- school preflight paperwork (Student Preflight Checklist and Guide) ---------- */
 (function(){
 const S=window.EFB.S,esc=window.EFB.esc;
-const LISTS={
+const LISTS=window._PP_LISTS={
   dual:['General Declaration (2 copies)','METAR / TAF','NOTAMs','Preflight risk assessment matrix (CEA-SFT-10)','Flight plan'],
   solo:['General Declaration (2 copies)','METAR / TAF','NOTAMs','Preflight risk assessment matrix (CEA-SFT-10)','Mass and balance','Pre-flight performance','Flight plan','Student solo authorization form (CEA-TRN-06)'],
   nav:['General Declaration (2 copies)','METAR / TAF','NOTAMs','Preflight risk assessment matrix (CEA-SFT-10)','Mass and balance','Pre-flight performance','Navigation log (CEA-OPS-06)','Flight plan','Solo qualifying cross country training form (CEA-TRN-05), if required','Student solo authorization form (CEA-TRN-06)']};
@@ -351,11 +433,11 @@ const page=document.querySelector('#v-brief .page');if(!page)return;
 const card=document.createElement('div');card.className='card';card.id='pp';page.insertBefore(card,page.children[1]);
 function render(){const st=S.get('pp',{}),today=window.EFB.todayISO();if(st.d!==today){st.d=today;st.t=st.t||'dual';st.c={}}
   const l=LISTS[st.t];const n=l.filter((_,i)=>st.c[st.t+i]).length;
-  card.innerHTML=`<div class="row between"><h2 style="margin:0">Preflight paperwork</h2><span class="pill ${n===l.length?'good':'warn'}">${n}/${l.length}</span></div>
+  card.innerHTML=`<div class="row between"><h2 style="margin:0">Preflight paperwork</h2><div class="row"><span class="pill ${n===l.length?'good':'warn'}">${n}/${l.length}</span><button type="button" class="primary" id="pp_print">Print preflight pack</button></div></div>
    <div class="seg" style="margin:10px 0">${[['dual','Dual training'],['solo','First / local solo'],['nav','Navigation solo']].map(([k,t])=>`<button type="button" data-pt="${k}" aria-pressed="${st.t===k}">${t}</button>`).join('')}</div>
    ${l.map((x,i)=>`<label class="chk"><input type="checkbox" data-pi="${i}" ${st.c[st.t+i]?'checked':''}><span class="grow">${i+1}. ${esc(x)}</span></label>`).join('')}`;
   S.set('pp',st)}
-card.addEventListener('click',e=>{const b=e.target.closest('[data-pt]');if(!b)return;const st=S.get('pp',{});st.t=b.dataset.pt;S.set('pp',st);render()});
+card.addEventListener('click',e=>{if(e.target.id==='pp_print'){window.EFB.printPack();return}const b=e.target.closest('[data-pt]');if(!b)return;const st=S.get('pp',{});st.t=b.dataset.pt;S.set('pp',st);render()});
 card.addEventListener('change',e=>{const i=e.target.dataset.pi;if(i==null)return;const st=S.get('pp',{});st.c[st.t+i]=e.target.checked;S.set('pp',st);render()});
 render();
 })();
