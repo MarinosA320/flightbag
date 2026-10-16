@@ -172,35 +172,80 @@ function renderMB(){
   const capL=num(a.cap);const overCap=isFinite(capL)&&num(MB.fuel)>capL;const bagMax=num(a.bagmax);const overBag=isFinite(bagMax)&&num(MB.bag)>bagMax;
   if(overCap)all.push(`Fuel ${MB.fuel} L exceeds usable ${capL} L`);if(overBag)all.push(`Baggage exceeds ${bagMax} kg`);
   const tripAuto=NL._route&&num(NL.ff)>0?(NL._route*num(NL.ff)/60).toFixed(1):'';
-  box.innerHTML=`<div class="grid2">
-   <div class="card"><h2>Loading · ${esc(a.reg)}</h2>
-    <div class="fields two">
+  const LB=2.20462,INLB=86.796;const lb=v=>isFinite(v)?Math.round(v*LB).toLocaleString('en'):'',il=v=>isFinite(v)?Math.round(v*INLB).toLocaleString('en'):'';
+  const k1=v=>isFinite(v)?(Math.round(v*10)/10).toString():'',k2=v=>isFinite(v)?(Math.round(v*100)/100).toString():'';
+  const R=r.rows,fm=r.fuelKg*AFM.arms.fuel;const IN=[null,90.6,128.0,143.7];const L0=v=>Math.round(v*LB);const ilb=(kg,arm)=>L0(kg)*arm;
+  const mi=[Math.round(R[0][2]*INLB),ilb(R[1][1],90.6),ilb(R[2][1],128.0),ilb(R[3][1],143.7)];const mz=mi.reduce((a,b)=>a+b,0),mf=ilb(r.fuelKg,103.5),mt=mz+mf;const fmt=v=>isFinite(v)?Math.round(v).toLocaleString('en'):'';
+  const ok=!all.length;
+  const row=(n,label,ex,mine)=>`<tr><td class="lbl"><span class="no">${n}.</span>${label}</td><td>${ex[0]}<i>${ex[1]}</i></td><td>${ex[2]}<i>${ex[3]}</i></td><td class="mine">${mine[0]}<i>${mine[1]}</i></td><td class="mine">${mine[2]}<i>${mine[3]}</i></td></tr>`;
+  box.innerHTML=`<div class="card">
+    <div class="row between"><h2 style="margin:0">Loading · ${esc(a.reg)}</h2><div class="row"><span class="pill ${ok?'good':'bad'}">${ok?'Within limits':'Out of limits'}</span><button type="button" class="primary" id="mb_print">Print / PDF</button></div></div>
+    <div class="fields five" style="margin-top:10px">
      <label>Aircraft<select id="mb_acft">${FLEET.map(x=>`<option ${x.reg===a.reg?'selected':''}>${esc(x.reg)}</option>`).join('')}</select></label>
      <label>Front seats kg<input id="mb_front" inputmode="decimal" value="${esc(MB.front)}"></label>
      <label>Rear seats kg<input id="mb_rear" inputmode="decimal" value="${esc(MB.rear)}"></label>
      <label>Baggage kg<input id="mb_bag" inputmode="decimal" value="${esc(MB.bag)}"></label>
-     <label>Fuel at take-off L<input id="mb_fuel" inputmode="decimal" value="${esc(MB.fuel)}" placeholder="${isFinite(capL)?'max '+capL:''}"></label>
-     <label>Trip fuel L<input id="mb_trip" inputmode="decimal" value="${esc(MB.trip)}" placeholder="${tripAuto?'navlog: '+tripAuto:''}"></label>
-    </div>${tripAuto&&!MB.trip?`<button type="button" id="mb_usetrip">Use navlog trip fuel (${tripAuto} L)</button>`:''}
-    <div class="tbl" style="margin-top:12px"><table><thead><tr><th>Item</th><th>Arm m</th><th>Mass kg</th><th>Moment kgm</th></tr></thead><tbody>
-     ${r.rows.map((x,i)=>`<tr><td>${x[0]}</td><td>${i?[AFM.arms.front,AFM.arms.rear,AFM.arms.bag][i-1].toFixed(2):f3(x[2]/x[1])}</td><td>${f(x[1])}</td><td>${f2(x[2])}</td></tr>`).join('')}
-     <tr class="sum"><td>Zero fuel</td><td>${f3(zc.cg)}</td><td>${f(r.zf[0])}</td><td>${f2(r.zf[1])}</td></tr>
-     <tr><td>Fuel ${esc(MB.fuel||0)} L × ${AFM.density}</td><td>${AFM.arms.fuel.toFixed(2)}</td><td>${f(r.fuelKg)}</td><td>${f2(r.fuelKg*AFM.arms.fuel)}</td></tr>
-     <tr class="sum"><td>Take-off</td><td>${f3(tc.cg)}</td><td>${f(r.to[0])}</td><td>${f2(r.to[1])}</td></tr>
-     <tr><td>Trip fuel ${esc(MB.trip||0)} L</td><td>${AFM.arms.fuel.toFixed(2)}</td><td>−${f(r.tripKg)}</td><td>−${f2(r.tripKg*AFM.arms.fuel)}</td></tr>
-     <tr class="sum"><td>Landing</td><td>${f3(lc.cg)}</td><td>${f(r.ld[0])}</td><td>${f2(r.ld[1])}</td></tr></tbody></table></div></div>
-   <div class="card"><div class="row between"><h2 style="margin:0">CG envelope</h2><span class="pill ${all.length?'bad':'good'}">${all.length?'Out of limits':'Within limits'}</span></div>
-    ${envelopeSVG([{n:'ZF',m:r.zf[0],cg:zc.cg,bad:zc.errs.length},{n:'TO',m:r.to[0],cg:tc.cg,bad:tc.errs.length},{n:'LDG',m:r.ld[0],cg:lc.cg,bad:lc.errs.length}])}
-    ${all.length?`<ul class="errs">${all.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`:`<p class="sub">Take-off category: <b>${tc.cat}</b>. Forward limit 2.40 m up to 980 kg, rising linearly to 2.46 m at 1150 kg; aft limit 2.59 m.</p>`}
-    <div class="facts" style="margin-top:10px">
-     <div class="ro"><div class="k">Rotate vR</div><div class="v">${Math.round(interp(AFM.vr,r.to[0]))}<small> KIAS</small></div></div>
-     <div class="ro"><div class="k">Initial climb</div><div class="v">${Math.round(interp(AFM.climb,r.to[0]))}<small> KIAS</small></div></div>
-     <div class="ro"><div class="k">Approach (LDG)</div><div class="v">${Math.round(interp(AFM.vapp,r.ld[0]))}<small> KIAS</small></div></div>
-    </div><p class="sub">Speeds interpolated between the AFM values for 850, 1000 and 1150 kg.</p></div></div>`;
+     <label>Usable fuel L<input id="mb_fuel" inputmode="decimal" value="${esc(MB.fuel)}" placeholder="${isFinite(capL)?'max '+capL:''}"></label>
+    </div>
+    ${all.length?`<ul class="errs">${all.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`:''}
+    <div class="row" style="gap:16px;flex-wrap:wrap">
+     <label style="max-width:180px">Trip fuel L (landing)<input id="mb_trip" inputmode="decimal" value="${esc(MB.trip)}" placeholder="${tripAuto?'navlog: '+tripAuto:''}"></label>
+     ${tripAuto&&!MB.trip?`<button type="button" id="mb_usetrip">Use navlog trip fuel (${tripAuto} L)</button>`:''}
+     <span class="sub" style="margin:0">Landing: ${k1(r.ld[0])} kg, CG ${isFinite(lc.cg)?lc.cg.toFixed(3):'—'} m · vR ${Math.round(interp(AFM.vr,r.to[0]))} · initial climb ${Math.round(interp(AFM.climb,r.to[0]))} · approach ${Math.round(interp(AFM.vapp,r.ld[0]))} KIAS</span>
+    </div></div>
+   <div class="paperwrap"><div class="mbp">
+    <div class="mbp-hd"><b>DA 40 D · Mass and Balance</b><span>${esc(a.reg)} · ${esc((NL.date||E.todayISO()).split('-').reverse().join('/'))}${NL.pic?' · '+esc(NL.pic):''}</span></div>
+    <div class="mbp-grid">
+    <table class="mbt"><colgroup><col style="width:42%"><col style="width:11.5%"><col style="width:14.5%"><col style="width:13%"><col style="width:19%"></colgroup>
+     <tr class="h1"><th rowspan="2" class="ttl">CALCULATION OF<br>LOADING CONDITION</th><th colspan="2">DA 40 D<br>(Example)</th><th colspan="2">Your DA 40 D</th></tr>
+     <tr class="h2"><th>Mass<br>[kg]<i>[lb]</i></th><th>Moment<br>[kgm]<i>[in.lb]</i></th><th>Mass<br>[kg]<i>[lb]</i></th><th>Moment<br>[kgm]<i>[in.lb]</i></th></tr>
+     ${row(1,'Empty mass (from Mass and Balance Report)',['735','1620','1820','158,000'],[k1(R[0][1]),lb(R[0][1]),k2(R[0][2]),fmt(mi[0])])}
+     ${row(2,'Front seats<br>Lever arm: 2.30 m <small>(90.6 in)</small>',['150','331','345','29,989'],[k1(R[1][1]),lb(R[1][1]),k2(R[1][2]),fmt(mi[1])])}
+     ${row(3,'Rear seats<br>Lever arm: 3.25 m <small>(128.0 in)</small>',['150','331','487.5','42,368'],[k1(R[2][1]),lb(R[2][1]),k2(R[2][2]),fmt(mi[2])])}
+     ${row(4,'Baggage<br>Lever arm: 3.65 m <small>(143.7 in)</small>',['0','0','0','0'],[k1(R[3][1]),lb(R[3][1]),k2(R[3][2]),fmt(mi[3])])}
+     ${row(5,'Total mass and total moment with empty fuel tanks (Total of 1.-4.)',['1035','2282','2652.5','230,357'],[k1(r.zf[0]),lb(r.zf[0]),k2(r.zf[1]),fmt(mz)])}
+     ${row(6,`On-board usable fuel <small>(0.84 kg/liter) (7.01 lb/US gal)</small><br>Lever arm: 2.63 m <small>(103.5 in)</small>${MB.fuel?` <b class="ltr">${esc(MB.fuel)} L</b>`:''}`,['100.8','222','265.10','23,001'],[k1(r.fuelKg),lb(r.fuelKg),k2(fm),fmt(mf)])}
+     ${row(7,'Total mass and total moment with full fuel tanks (Total 5. plus 6.)',['1135.8','2504','2917.60','253,357'],[k1(r.to[0]),lb(r.to[0]),k2(r.to[1]),fmt(mt)])}
+     <tr><td colspan="5" class="r8"><span class="no">8.</span>The total moments from rows 5 and 7 (${k2(r.zf[1])} and ${k2(r.to[1])} kgm) must be divided by the related total mass (${k1(r.zf[0])} and ${k1(r.to[0])} kg) and then located in Diagram 6.4.4 - PERMISSIBLE CENTER OF GRAVITY RANGE.<br>
+      The CG positions are <b>${isFinite(zc.cg)?zc.cg.toFixed(3):'—'} m</b> and <b>${isFinite(tc.cg)?tc.cg.toFixed(3):'—'} m</b> <small>(${isFinite(zc.cg)?(zc.cg*39.3701).toFixed(2):'—'} and ${isFinite(tc.cg)?(tc.cg*39.3701).toFixed(2):'—'} in)</small>${ok?'; masses and CG fall into the permitted area, so this loading condition is <b>allowable</b>.':'; this loading condition is <b class="no-go">NOT allowable</b>.'}</td></tr>
+    </table>
+    <div class="mbd">${afmDiagram([{m:r.zf[0],cg:zc.cg,n:'5'},{m:r.to[0],cg:tc.cg,n:'7',main:1},{m:r.ld[0],cg:lc.cg,n:'LDG'}])}
+     <p>The flight CG position must be within the following limits:</p>
+     <p>Most forward flight CG:<br>&nbsp;&nbsp;2.40 m (94.5 in) aft of Datum Plane at 780 to 980 kg (1720 to 2161 lb)<br>&nbsp;&nbsp;2.46 m (96.9 in) aft of Datum Plane at 1150 kg (2535 lb)<br>&nbsp;&nbsp;linear variation between these values</p>
+     <p>Most rearward flight CG:<br>&nbsp;&nbsp;2.59 m (102.0 in) aft of Datum Plane</p></div>
+    </div></div></div>`;
+}
+function afmDiagram(pts){
+  const W=600,H=440,L=95,Rr=505,T=80,B=375;const x0=2.40,x1=2.60,y0=750,y1=1150;
+  const X=v=>L+(v-x0)/(x1-x0)*(Rr-L),Y=v=>B-(v-y0)/(y1-y0)*(B-T);
+  let g='';
+  for(let v=750;v<=1150;v+=50){g+=`<line x1="${L}" x2="${Rr}" y1="${Y(v)}" y2="${Y(v)}" class="g"/><text x="${L-8}" y="${Y(v)+6}" text-anchor="end" class="n">${v}</text>`}
+  for(let v=2.40;v<=2.6001;v+=0.05)g+=`<line x1="${X(v)}" x2="${X(v)}" y1="${B}" y2="${B+6}" class="k"/><text x="${X(v)}" y="${B+26}" text-anchor="middle" class="n">${v.toFixed(2)}</text>`;
+  for(let i=94;i<=102;i+=2){const m=i/39.3701;g+=`<line x1="${X(m)}" x2="${X(m)}" y1="${T-22}" y2="${T-28}" class="k"/><text x="${X(m)}" y="${T-32}" text-anchor="middle" class="n">${i}</text>`}
+  for(let i=1800;i<=2600;i+=200){const kg=i/2.20462;g+=`<line x1="${Rr+20}" x2="${Rr+26}" y1="${Y(kg)}" y2="${Y(kg)}" class="k"/><text x="${Rr+30}" y="${Y(kg)+6}" class="n">${i}</text>`}
+  const env=[[2.40,780],[2.40,980],[2.46,1150],[2.59,1150],[2.59,780]].map(p=>X(p[0])+','+Y(p[1])).join(' ');
+  const mk=p=>{if(!isFinite(p.cg)||!isFinite(p.m))return'';const x=X(p.cg),y=Y(p.m);const s=p.main?9:7;
+    return `<g class="${p.main?'cgm':'cgo'}"><rect x="${x-s}" y="${y-s}" width="${2*s}" height="${2*s}"/><line x1="${x-s}" y1="${y-s}" x2="${x+s}" y2="${y+s}"/><line x1="${x+s}" y1="${y-s}" x2="${x-s}" y2="${y+s}"/></g><text x="${x+s+3}" y="${y+(p.n==='LDG'?18:4)}" class="pl">${p.n}</text>`};
+  return `<svg viewBox="0 0 ${W} ${H}" class="afmd">
+   <text x="${(L+Rr)/2}" y="16" text-anchor="middle" class="t">Center of Gravity Position [in]</text>
+   <line x1="${L}" x2="${Rr}" y1="${T-22}" y2="${T-22}" class="ax"/>
+   <line x1="${Rr+20}" x2="${Rr+20}" y1="${T-22}" y2="${B+4}" class="ax"/>
+   <rect x="${L}" y="${T}" width="${Rr-L}" height="${B-T}" class="frame"/>${g}
+   <polygon points="${env}" class="env"/><line x1="${X(2.40)}" x2="${X(2.59)}" y1="${Y(980)}" y2="${Y(980)}" class="envl"/>
+   <rect x="${X(2.458)}" y="${Y(1146)}" width="${X(2.585)-X(2.458)}" height="20" class="lb"/><text x="${X(2.515)}" y="${Y(1146)+15}" text-anchor="middle" class="s">1150 kg / 2535 lb</text>
+   <text x="${X(2.52)}" y="${Y(1080)}" text-anchor="middle" class="s2">Normal</text>
+   <rect x="${X(2.45)}" y="${Y(976)}" width="${X(2.58)-X(2.45)}" height="20" class="lb"/><text x="${X(2.515)}" y="${Y(976)+15}" text-anchor="middle" class="s">980 kg / 2161 lb</text>
+   <text x="${X(2.50)}" y="${Y(875)}" text-anchor="middle" class="s2">Utility &amp; Normal</text>
+   <rect x="${X(2.45)}" y="${Y(776)}" width="${X(2.58)-X(2.45)}" height="20" class="lb"/><text x="${X(2.515)}" y="${Y(776)+15}" text-anchor="middle" class="s">780 kg / 1720 lb</text>
+   ${pts.map(mk).join('')}
+   <text x="${(L+Rr)/2}" y="${H-14}" text-anchor="middle" class="t">Center of Gravity Position [m]</text>
+   <text x="24" y="${(T+B)/2}" text-anchor="middle" class="t" transform="rotate(-90 24 ${(T+B)/2})">Flight Mass [kg]</text>
+   <text x="${W-8}" y="${(T+B)/2}" text-anchor="middle" class="t" transform="rotate(-90 ${W-8} ${(T+B)/2})">Flight Mass [lb]</text>
+  </svg>`;
 }
 $('ac_mb').addEventListener('input',e=>{const id=e.target.id;if(!id||!id.startsWith('mb_')||id==='mb_acft')return;MB[id.slice(3)]=e.target.value;saveMB();clearTimeout(renderMB._t);renderMB._t=setTimeout(()=>{const f=document.activeElement&&document.activeElement.id;renderMB();if(f&&$(f)){$(f).focus();const v=$(f).value;try{$(f).setSelectionRange(v.length,v.length)}catch(x){}}},500)});
 $('ac_mb').addEventListener('change',e=>{if(e.target.id==='mb_acft'){NL.acft=e.target.value;saveNL();renderMB()}});
-$('ac_mb').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.dataset.go)tab(b.dataset.go);if(b.id==='mb_usetrip'){MB.trip=(NL._route*num(NL.ff)/60).toFixed(1);saveMB();renderMB()}});
+$('ac_mb').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='mb_print'){window.print();return}if(b.dataset.go)tab(b.dataset.go);if(b.id==='mb_usetrip'){MB.trip=(NL._route*num(NL.ff)/60).toFixed(1);saveMB();renderMB()}});
 
 /* ---------- fleet ---------- */
 function renderFleet(){
