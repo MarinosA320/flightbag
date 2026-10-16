@@ -88,14 +88,28 @@ function perfPages(){const K=P.calcPerf();if(!K)return[];const D=K.D,A=K.A;
 function navPage(){E.calcNav();const n=$('cea');return n?`<section class="ppage navp">${n.outerHTML.replace('id="cea"','')}</section>`:''}
 
 /* ---------- weather and NOTAM briefing documents ---------- */
-function briefIds(){const v=id=>{const el=$(id);return el?el.value.trim().toUpperCase():''};
-  const W=E.wpts;const ids=[v('b_dep')||(W[0]&&E.BY[W[0].n]?W[0].n:''),v('b_dst')||(W.length>1&&E.BY[W[W.length-1].n]?W[W.length-1].n:''),v('b_alt')];
-  W.forEach(w=>{if(E.BY[w.n])ids.push(w.n)});return [...new Set(ids.filter(x=>/^[A-Z]{4}$/.test(x)))]}
+/* aerodromes for the briefing: departure, destination, alternate, every aerodrome on the route (touch-and-goes)
+   and every aerodrome within 10 NM of the track (enroute). ROLE says why each is there. */
+const ROLE={};
+function adInfo(id){const a=E.BY[id];if(a)return a;const o=(window.EFB_OTHER||[]).find(x=>x[0]===id);return o?{icao:o[0],name:o[1],lat:o[2],lon:o[3]}:null}
+function briefIds(){const v=id=>{const el=$(id);return el?el.value.trim().toUpperCase():''};const W=E.wpts;
+  for(const k in ROLE)delete ROLE[k];const ids=[];const add=(id,r)=>{if(!/^[A-Z]{4}$/.test(id||''))return;if(!ids.includes(id))ids.push(id);if(!ROLE[id])ROLE[id]=r};
+  add(v('b_dep')||(W[0]&&adInfo(W[0].n)?W[0].n:''),'Departure');
+  const dst=v('b_dst')||(W.length>1&&adInfo(W[W.length-1].n)?W[W.length-1].n:''),alt=v('b_alt');
+  W.forEach((w,i)=>{if(i>0&&i<W.length-1&&adInfo(w.n)&&w.n!==dst)add(w.n,'On route (touch-and-go / landing)')});
+  /* enroute: within 10 NM of any leg */
+  const cand=[...(E.APTS||[]).map(a=>({icao:a.icao,lat:a.lat,lon:a.lon})),...(window.EFB_OTHER||[]).filter(o=>/^LG[A-Z]{2}$/.test(o[0])).map(o=>({icao:o[0],lat:o[2],lon:o[3]}))];
+  const near=[];for(let i=1;i<W.length;i++){const a=W[i-1],b=W[i];const n=Math.max(2,Math.ceil(E.gc(a,b).d/2));let base=0;for(let j=1;j<i;j++)base+=E.gc(W[j-1],W[j]).d;
+    for(let k=0;k<=n;k++){const f=k/n,p={lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f};
+      cand.forEach(c=>{const d=E.gc(p,c).d;if(d<=10){const o=near.find(x=>x.id===c.icao);const at=base+E.gc(a,b).d*f;if(!o)near.push({id:c.icao,d,at});else if(d<o.d){o.d=d}}})}}
+  near.sort((x,y)=>x.at-y.at).forEach(x=>{if(x.id!==dst&&x.id!==alt)add(x.id,`Enroute · ${x.d.toFixed(0)} NM from track`)});
+  add(dst,'Destination');add(alt,'Alternate');
+  return ids}
 const docHead=(t,sub)=>`<div class="dh"><img src="afm/cea-logo.png" alt=""><div><b>${esc(t)}</b><span>${esc(sub)}</span></div><span class="dr">${esc((P.NL.pic||'').toUpperCase())}<br>${date()} · ${esc(P.NL.acft||'')}</span></div>`;
 const utc=s=>{const d=new Date(s);return isNaN(d)?esc(s||''):d.toISOString().slice(0,16).replace('T',' ')+'Z'};
 async function wxDoc(ids){let w={},err='';try{w=await E.getWx(ids)}catch(e){err=e.message||'Weather could not be retrieved'}
   if(err)return `<section class="ppage doc">${docHead('METAR / TAF',ids.join(' · '))}<p class="warnbox">${esc(err)}. Print the METAR/TAF from aviationweather.gov or the HNMS site and attach them to this pack.</p></section>`;
-  const rows=ids.map(id=>{const x=w[id]||{};const a=E.BY[id];return `<section class="wxb"><h3>${id}${a?' · '+esc(a.name):''}</h3>
+  const rows=ids.map(id=>{const x=w[id]||{};const a=adInfo(id);return `<section class="wxb"><h3>${id}${a?' · '+esc(a.name):''}${ROLE[id]?` <span class="nrole">${esc(ROLE[id])}</span>`:''}</h3>
     <p class="lbl">METAR${x.metar&&x.metar.fltCat?' · '+esc(x.metar.fltCat):''}</p><pre>${x.metar?esc(x.metar.rawOb):'No METAR available for this aerodrome.'}</pre>
     <p class="lbl">TAF</p><pre>${x.taf?esc(x.taf.rawTAF).replace(/ (BECMG|TEMPO|FM\d|PROB\d\d)/g,'\n   $1'):'No TAF issued for this aerodrome.'}</pre></section>`}).join('');
   return `<section class="ppage doc">${docHead('METAR / TAF','Source: aviationweather.gov · retrieved '+(()=>{const t=ids.map(i=>w[i]&&w[i].metar&&w[i].metar.at).filter(Boolean).sort()[0];return t?utc(t):new Date().toISOString().slice(0,16).replace('T',' ')+'Z'})())}<div class="wxcols">${rows}</div></section>`}
@@ -107,8 +121,8 @@ async function notamDoc(ids){const all=[...ids,'LGGG'];
       if(Date.now()-Date.parse(j.fetched)>6*3600e3)throw new Error('feed out of date ('+utc(j.fetched)+')');
       miss.forEach(i=>{j.errors=j.errors||{};j.errors[i]='not in the briefing feed'})}catch(e){j=null;errs.push('briefing feed: '+(e.message||e))}}
   if(!j)return fail(errs.join('; '));
-  const sec=all.map(id=>{const L=(j.notams[id]||[]).slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));const a=E.BY[id];
-    return `<section class="nt"><h3>${id}${id==='LGGG'?' · Athinai FIR':a?' · '+esc(a.name):''} <small>${j.errors&&j.errors[id]?'· could not be retrieved: '+esc(j.errors[id]):L.length+' NOTAM'+(L.length===1?'':'s')+(j.stale&&j.stale[id]?' · retrieved '+utc(j.stale[id]):'')}</small></h3>
+  const sec=all.map(id=>{const L=(j.notams[id]||[]).slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));const a=adInfo(id);
+    return `<section class="nt"><h3>${id}${id==='LGGG'?' · Athinai FIR':a?' · '+esc(a.name):''}${ROLE[id]?` <span class="nrole">${esc(ROLE[id])}</span>`:id==='LGGG'?' <span class="nrole">FIR</span>':''} <small>${j.errors&&j.errors[id]?'· could not be retrieved: '+esc(j.errors[id]):L.length+' NOTAM'+(L.length===1?'':'s')+(j.stale&&j.stale[id]?' · retrieved '+utc(j.stale[id]):'')}</small></h3>
       ${L.map(n=>`<div class="nn"><b>${esc(n.id)}</b>${n.category?` <span class="nc">${esc(n.category)}</span>`:''}<pre>${esc(n.text)}</pre>${n.plain?`<p class="np">${esc(n.plain)}</p>`:''}</div>`).join('')||(j.errors&&j.errors[id]?'':'<p class="sub">No NOTAMs in force.</p>')}</section>`}).join('');
   return `<section class="ppage doc">${docHead('NOTAM briefing',`${all.join(' · ')} · ${esc(j.source||'')} · retrieved ${utc(j.fetched)}`)}<div class="ntcols">${sec}</div><p class="foot">Check the official pre-flight information bulletin (EUROCONTROL EAD / Greek AIS) before flight. This list is a convenience copy.</p></section>`}
 async function chartPages(){const SETS=[['swc','Significant weather chart'],['wind','Wind and temperature aloft'],['pressure','Surface pressure chart']];

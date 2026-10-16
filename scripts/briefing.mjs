@@ -9,6 +9,7 @@ import {onRequestGet as notamFn} from '../functions/api/notam.js';
 import {onRequestGet as emyFn} from '../functions/api/wx/emy.js';
 const OUT=process.argv[2]||'out';fs.mkdirSync(path.join(OUT,'emy'),{recursive:true});
 const ids=[...fs.readFileSync('data.js','utf8').split('\n').find(l=>l.startsWith('window.EFB_AIRPORTS')).matchAll(/"icao": "([A-Z]{4})"/g)].map(m=>m[1]);
+{const o=fs.readFileSync('data.js','utf8').split('\n').find(l=>l.startsWith('window.EFB_OTHER'));if(o)for(const m of o.matchAll(/\["(LG[A-Z]{2})"/g))if(!ids.includes(m[1]))ids.push(m[1])}
 const call=async(fn,url,env={})=>{const r=await fn({request:new Request(url),env});return r.json()};
 const chunks=(a,n)=>a.reduce((o,x,i)=>(i%n?o[o.length-1].push(x):o.push([x]),o),[]);
 const now=()=>new Date().toISOString();

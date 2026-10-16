@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=16">
+<link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
 <div id="app">
@@ -117,8 +117,8 @@
           <label>Wind kt<input id="n_ws" inputmode="decimal" value="15"></label>
           <label>Variation °E<input id="n_var" inputmode="decimal" value="5"></label>
         </div><p class="sub">Defaults for every leg. Variation 5°E per the current Greek charts.</p></div>
-        <div class="card"><h2>Waypoints</h2><div class="tbl"><table><thead><tr><th>#</th><th>Name</th><th>Lat</th><th>Lon</th><th></th></tr></thead><tbody id="n_wpts"></tbody></table></div>
-          <p class="sub">Coordinates take decimal (35.339) or degrees and minutes (N35 20.4).</p></div>
+        <div class="card"><h2>Waypoints</h2><div class="tbl"><table><thead><tr><th>#</th><th>Name</th><th>Lat</th><th>Lon</th><th title="Altitude flown on the leg to this point">Alt ft</th><th></th></tr></thead><tbody id="n_wpts"></tbody></table></div>
+          <p class="sub">Coordinates take decimal (35.339) or degrees and minutes (N35 20.4). Alt is the altitude flown on the leg to that point (feet, or FL055); blank uses the cruise altitude. It goes on the log and is used for the forecast winds.</p></div>
         <div class="card"><div class="row between"><div class="row"><label style="max-width:220px">Planning fuel flow L/h<input id="nl_ff" inputmode="decimal" placeholder="AFM fuel flow chart"></label></div>
           <div class="row"><button type="button" id="nl_clear">New blank log</button><button type="button" class="primary" id="nl_print">Print / PDF</button></div></div>
           <p class="sub" id="nl_fuelsum"></p></div>
@@ -238,13 +238,13 @@
 <script src="data.js?v=11"></script>
 <script src="points.js?v=5"></script>
 <script src="charts.js?v=5"></script>
-<script src="app.js?v=18"></script>
+<script src="app.js?v=19"></script>
 <script src="perfdata.js?v=12"></script>
 <script src="perfengine.js?v=12"></script>
 <script src="plan.js?v=13"></script>
-<script src="enroute.js?v=1"></script>
-<script src="route.js?v=1"></script>
-<script src="pack.js?v=19"></script>
+<script src="enroute.js?v=2"></script>
+<script src="route.js?v=2"></script>
+<script src="pack.js?v=20"></script>
 <script src="account.js?v=13"></script>
 </body>
 </html>

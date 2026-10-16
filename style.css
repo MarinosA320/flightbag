@@ -370,3 +370,5 @@ table.ft th{background:#eee}table.ft td b{font-family:Consolas,monospace}
 table.wt td{font-family:Consolas,monospace;white-space:nowrap}table.wt small{color:#555}
 .ppage.doc .np{margin:2px 0 0;font-size:10px;color:#333}.ppage.doc .foot{font-size:9.5px;color:#444;margin-top:8px}
 @media (max-width:700px){.frcols{grid-template-columns:1fr}}
+.nrole{display:inline-block;font-size:9px;font-weight:700;color:#fff;background:#8b1a1a;border-radius:3px;padding:0 4px;margin-left:4px;vertical-align:1px}
+#n_wpts .altin{max-width:90px}

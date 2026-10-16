@@ -67,7 +67,7 @@ async function getWx(ids){
     const q=need.join(',');let mj=null,tj=[],errs=[];
     const J=async u=>{const r=await fetch(u,{cache:'no-store'});if(r.status===204)return [];if(!r.ok)throw new Error('HTTP '+r.status);const t=await r.text();return t.trim()?JSON.parse(t):[]};
     if(window.EFB_SERVER){try{const j=await J('/api/wx/metar?ids='+q);mj=j.metar||[];tj=j.taf||[]}catch(e){errs.push('school server: '+e.message)}}
-    if(!mj){try{const f=await feed('metar.json');if(Date.now()-Date.parse(f.fetched)<3*3600e3&&need.every(i=>f.ids.includes(i))){mj=f.metar.map(o=>({...o,at:f.fetched}));tj=f.taf}else errs.push('briefing feed: '+(need.every(i=>f.ids.includes(i))?'out of date ('+f.fetched.slice(11,16)+'Z)':'aerodrome not in feed'))}catch(e){errs.push('briefing feed: '+e.message)}}
+    if(!mj){try{const f=await feed('metar.json');if(Date.now()-Date.parse(f.fetched)<3*3600e3&&need.some(i=>f.ids.includes(i))){mj=f.metar.map(o=>({...o,at:f.fetched}));tj=f.taf}else errs.push('briefing feed: '+(need.some(i=>f.ids.includes(i))?'out of date ('+f.fetched.slice(11,16)+'Z)':'aerodrome not in feed'))}catch(e){errs.push('briefing feed: '+e.message)}}
     if(!mj){try{[mj,tj]=await Promise.all([J(`https://aviationweather.gov/api/data/metar?ids=${q}&format=json`),J(`https://aviationweather.gov/api/data/taf?ids=${q}&format=json`)])}catch(e){mj=null;errs.push('aviationweather.gov: '+(e.message||'blocked'))}}
     if(!mj){/* fallback: NOAA raw text files, one per station */
       try{mj=[];tj=[];await Promise.all(need.map(async id=>{
@@ -239,13 +239,13 @@ function legs(){
 function updRouteBar(){const L=legs();const d=L.reduce((s,l)=>s+l.d,0),t=L.reduce((s,l)=>s+l.ete,0);
   $('rb_pts').textContent=wpts.length+(wpts.length===1?' point':' points');$('rb_tot').textContent=L.length?d.toFixed(1)+' NM · '+fmtT(t):''}
 function renderNav(){
-  $('n_wpts').innerHTML=wpts.length?wpts.map((w,i)=>`<tr><td>${i+1}</td><td><input data-i="${i}" data-f="n" value="${esc(w.n)}"></td><td><input data-i="${i}" data-f="lat" value="${dm(w.lat,1)}"></td><td><input data-i="${i}" data-f="lon" value="${dm(w.lon,0)}"></td><td><button type="button" class="x" data-up="${i}" aria-label="Move up">↑</button><button type="button" class="x" data-rm="${i}" aria-label="Remove">×</button></td></tr>`).join(''):'<tr><td colspan="5" class="wrap" style="color:var(--muted)">No route yet. Plan one on the map, or add points from airport pages.</td></tr>';
+  $('n_wpts').innerHTML=wpts.length?wpts.map((w,i)=>`<tr><td>${i+1}</td><td><input data-i="${i}" data-f="n" value="${esc(w.n)}"></td><td><input data-i="${i}" data-f="lat" value="${dm(w.lat,1)}"></td><td><input data-i="${i}" data-f="lon" value="${dm(w.lon,0)}"></td><td>${i?`<input data-i="${i}" data-f="alt" class="altin" inputmode="numeric" value="${esc(w.alt||'')}" placeholder="${esc((document.getElementById('n_calt')||{}).value||'cruise')}">`:'<span class="sub" style="margin:0">dep</span>'}</td><td><button type="button" class="x" data-up="${i}" aria-label="Move up">↑</button><button type="button" class="x" data-rm="${i}" aria-label="Remove">×</button></td></tr>`).join(''):'<tr><td colspan="6" class="wrap" style="color:var(--muted)">No route yet. Plan one on the map, or add points from airport pages.</td></tr>';
   calcNav();
 }
 function calcNav(){if(window.PLAN)PLAN.renderLog(legs());updRouteBar()}
 
 $('n_wpts').addEventListener('change',e=>{const t=e.target;if(t.dataset.i==null)return;const w=wpts[+t.dataset.i];
-  if(t.dataset.f==='n')w.n=t.value.trim()||w.n;else{const v=parseCoord(t.value,t.dataset.f==='lat');if(!isFinite(v)){t.style.borderColor='var(--bad)';return}w[t.dataset.f]=v}
+  if(t.dataset.f==='n')w.n=t.value.trim()||w.n;else if(t.dataset.f==='alt'){const v=t.value.trim().toUpperCase();if(v&&!/^(FL\s*\d{2,3}|\d{3,5})$/.test(v)){t.style.borderColor='var(--bad)';return}w.alt=v.replace(/\s+/g,'')}else{const v=parseCoord(t.value,t.dataset.f==='lat');if(!isFinite(v)){t.style.borderColor='var(--bad)';return}w[t.dataset.f]=v}
   saveRoute();renderNav()});
 $('n_wpts').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
   if(b.dataset.rm!=null)wpts.splice(+b.dataset.rm,1);else if(b.dataset.up!=null&&+b.dataset.up>0){const i=+b.dataset.up;[wpts[i-1],wpts[i]]=[wpts[i],wpts[i-1]]}else return;saveRoute();renderNav()});

@@ -62,7 +62,10 @@ function card(){const nav=$('cea');if(!nav||$('rw_card'))return;const c=document
     try{const r=await getWinds();apply(r);table(r)}catch(e){$('rw_tbl').innerHTML=`<p class="warnbox">${esc(e.message||e)}</p>`}
     b.disabled=false;b.textContent='Get forecast winds'};
   $('rw_freq').onclick=()=>window.PACK&&window.PACK.open(['freq']);
-  const r=S.get('winds',null);if(r&&r.key===key())table(r)}
+  const r=S.get('winds',null);if(r&&r.key===key())table(r);
+  const stale=()=>{const r=S.get('winds',null);if(r&&r.key!==key()&&$('rw_tbl').innerHTML)$('rw_tbl').innerHTML='<p class="sub">Route, altitudes or T/O time changed: tap Get forecast winds again.</p>'};
+  $('n_wpts').addEventListener('change',()=>setTimeout(stale,0));$('cea').addEventListener('change',()=>setTimeout(stale,0));
+  $('n_calt').addEventListener('change',()=>{setTimeout(stale,0);document.querySelectorAll('#n_wpts .altin').forEach(i=>i.placeholder=$('n_calt').value)})}
 function table(r){$('rw_tbl').innerHTML=`<table><thead><tr><th>Waypoint</th><th>ETA</th><th>Alt ft</th><th>W/V °T/kt</th><th>Temp °C</th>${LEVELS.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>
   ${r.pts.map(p=>`<tr><td>${esc(p.n)}</td><td>${hhmm(p.t)}</td><td>${p.alt}</td><td><b>${wv(p.w)}</b></td><td>${tc(p.w)}</td>${LEVELS.map(h=>`<td>${wv(p.lv[h])}</td>`).join('')}</tr>`).join('')}</tbody></table>
   <p class="sub">Open-Meteo model forecast, retrieved ${esc(r.at.slice(11,16))}Z${r.base.set?'':' · no T/O time on the log, so times start now'}. Leg W/V on the log was filled in from these; type over any value to change it. Cross-check with the HNMS wind chart in the briefing pack.</p>`}
