@@ -1,6 +1,6 @@
 /* Every request must carry a valid session, except the sign-in page and its API. */
 import {readSession} from './_lib.js';
-const OPEN=[/^\/login(\.html)?$/,/^\/api\/login$/,/^\/icon(-\d+)?\.(svg|png)$/,/^\/manifest\.json$/,/^\/fonts\/[\w.-]+\.woff2$/,/^\/afm\/cea-eagle\.png$/];
+const OPEN=[/^\/login(\.html)?$/,/^\/api\/login$/,/^\/icon(-\d+)?\.(svg|png)$/,/^\/manifest\.json$/,/^\/fonts\/[\w.-]+\.woff2$/];
 export async function onRequest(ctx){const url=new URL(ctx.request.url);
   if(!ctx.env.USERS||!ctx.env.SESSION_SECRET)return new Response('School server is not configured yet: add the USERS KV binding and SESSION_SECRET.',{status:503});
   if(OPEN.some(r=>r.test(url.pathname)))return ctx.next();

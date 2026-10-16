@@ -24,18 +24,18 @@ $('s_theme').addEventListener('click',e=>{const b=e.target.closest('button');if(
 
 /* ---------- navigation ---------- */
 const IC={
- map:'<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/>',
- apts:'<path d="M12 3v18M5 9l7 3 7-3M9 18l3-1 3 1"/>',
- tg:'<ellipse cx="12" cy="12" rx="9" ry="5"/><path d="M12 7h0M18 12l3-1"/><circle cx="7" cy="9" r="1.2"/>',
- nav:'<path d="M4 6h16M4 12h10M4 18h7"/><path d="M17 14l4 4-4 4"/>',
- brief:'<path d="M6 3h9l4 4v14H6z"/><path d="M9 11h7M9 15h7M9 7h4"/>',
- tools:'<circle cx="12" cy="12" r="8"/><path d="M12 12l4-5M12 4v2M20 12h-2"/>',
- risk:'<path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17v.5"/>',
- acft:'<path d="M12 2v20M3 12l9-2 9 2M8 20l4-1 4 1"/>',
- set:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'
+ map:'<path d="M3.5 5.5 9 3.8l6 2 5.5-1.7v14.4L15 20.2l-6-2-5.5 1.7z"/><path d="M9 3.8v14.4M15 5.8v14.4" opacity=".45"/><path d="M6 15l4.5-4 3 1.5L18 8"/><circle cx="18" cy="8" r="1.3"/>',
+ apts:'<path d="M9.2 3h5.6l3.7 18h-13z"/><path d="M12 6.2v1.6M12 10.4V12M12 14.6v1.6"/><path d="M8.2 18.6h7.6"/>',
+ tg:'<rect x="3" y="5.5" width="18" height="12" rx="4"/><path d="M7.5 17.5h9" stroke-width="3.2"/><path d="M10.5 3.8 13 5.5l-2.5 1.7"/>',
+ nav:'<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9.5 4V2.8h5V4"/><path d="M8.5 9.5h7M8.5 13h7M8.5 16.5h4"/>',
+ brief:'<path d="M7.2 17.5a4.2 4.2 0 0 1-.4-8.4 5.6 5.6 0 0 1 10.8 1.4 3.5 3.5 0 0 1-.4 7"/><path d="M3 21h9M14.5 21h6.5"/>',
+ tools:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.6"/><path d="M12 3v3M12 12l3.2-3.2"/><path d="M3 12h1.6M19.4 12H21" opacity=".6"/>',
+ risk:'<path d="M12 2.8 19.5 6v5.2c0 4.6-3.1 8.2-7.5 10-4.4-1.8-7.5-5.4-7.5-10V6z"/><path d="m8.6 12 2.4 2.4 4.6-4.8"/>',
+ acft:'<path d="M12 2.4c.75 0 1.15.9 1.15 2.3V9.2l8.35 2.5v1.55l-8.35-.9v5.25l2.75 1.7v1.3L12 20.9l-3.9.7v-1.3l2.75-1.7v-5.25l-8.35.9V11.7l8.35-2.5V4.7c0-1.4.4-2.3 1.15-2.3z"/>',
+ set:'<path d="M4 7h9.5M18.5 7H20M4 17h3M11 17h9"/><circle cx="16" cy="7" r="2.3"/><circle cx="9" cy="17" r="2.3"/>'
 };
 const NAV=[['map','Map'],['apts','Airports'],['tg','Circuits'],['nav','Navlog'],['brief','Brief'],['tools','Calc'],['risk','Risk'],['acft','DA40 D'],['set','Settings']];
-$('rail').innerHTML='<div class="brandmark" title="Cretan Eagle Aviation Flight Academy"><i></i><span>Cretan Eagle<br>Flight Bag</span></div>'+NAV.map(([k,l],i)=>(k==='set'?'<div class="spacer"></div><div class="utc" aria-live="off"><b id="utc_t">--:--Z</b><span>UTC</span></div>':'')+`<button type="button" data-v="${k}"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>${l}</button>`).join('');
+$('rail').innerHTML='<div class="brandmark" title="DA40 D Flight Bag"><svg viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="178" fill="none" stroke="currentColor" stroke-width="22" opacity=".55"/><path d="M256 52l22 30h-44z" fill="#ff4fd2"/><path d="M256 118c12 0 18 15 18 37v68l132 40v25l-132-14v84l44 27v21l-62-11-62 11v-21l44-27v-84l-132 14v-25l132-40v-68c0-22 6-37 18-37z" fill="currentColor"/></svg><span>DA40 D<br>Flight Bag</span></div>'+NAV.map(([k,l],i)=>(k==='set'?'<div class="spacer"></div><div class="utc" aria-live="off"><b id="utc_t">--:--Z</b><span>UTC</span></div>':'')+`<button type="button" data-v="${k}"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>${l}</button>`).join('');
 (function utc(){const t=new Date();const el=$('utc_t');if(el)el.textContent=t.toISOString().slice(11,16)+'Z';setTimeout(utc,(60-t.getUTCSeconds())*1000)})();
 $('rail').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.v)});
 function go(v){location.hash=v}

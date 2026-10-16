@@ -105,7 +105,7 @@ function briefIds(){const v=id=>{const el=$(id);return el?el.value.trim().toUppe
   near.sort((x,y)=>x.at-y.at).forEach(x=>{if(x.id!==dst&&x.id!==alt)add(x.id,`Enroute · ${x.d.toFixed(0)} NM from track`)});
   add(dst,'Destination');add(alt,'Alternate');
   return ids}
-const docHead=(t,sub)=>`<div class="dh"><img src="afm/cea-logo.png" alt=""><div><b>${esc(t)}</b><span>${esc(sub)}</span></div><span class="dr">${esc((P.NL.pic||'').toUpperCase())}<br>${date()} · ${esc(P.NL.acft||'')}</span></div>`;
+const docHead=(t,sub)=>`<div class="dh"><img src="icon.svg" alt="" class="dhm"><div><small class="dhn">DA40 D Flight Bag</small><b>${esc(t)}</b><span>${esc(sub)}</span></div><span class="dr">${esc((P.NL.pic||'').toUpperCase())}<br>${date()} · ${esc(P.NL.acft||'')}</span></div>`;
 const utc=s=>{const d=new Date(s);return isNaN(d)?esc(s||''):d.toISOString().slice(0,16).replace('T',' ')+'Z'};
 async function wxDoc(ids){let w={},err='';try{w=await E.getWx(ids)}catch(e){err=e.message||'Weather could not be retrieved'}
   if(err)return `<section class="ppage doc">${docHead('METAR / TAF',ids.join(' · '))}<p class="warnbox">${esc(err)}. Print the METAR/TAF from aviationweather.gov or the HNMS site and attach them to this pack.</p></section>`;

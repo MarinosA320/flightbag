@@ -7,12 +7,12 @@
 @font-face{font-family:"IBM Plex Sans Condensed";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-condensed-latin-600-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-mono-latin-400-normal.woff2) format("woff2")}
 @font-face{font-family:"IBM Plex Mono";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/ibm-plex-mono-latin-500-normal.woff2) format("woff2")}
-/* Cretan Eagle Aviation flight bag. Operational, calm, the school's burgundy as the one brand colour;
-   the red rule under each page title echoes the school's printed forms. Night palette by default for cockpit use. */
+/* DA40 D Flight Bag. Operational and calm: aeronautical-chart blue as the one brand colour, magenta for the route
+   as on VFR charts, a blue rule under each page title. Night palette by default for cockpit use. */
 :root{
   --bg:#111a22; --panel:#18232d; --raise:#202d39; --sunk:#0d151c; --line:#2b3a48; --line2:#3a4c5d; --fg:#e9eef2; --muted:#98a8b6;
-  --brand:#b8333a; --brand-hi:#e0666b; --brand-ink:#ffffff;
-  --accent:#b8333a; --accent-ink:#ffffff; --focus:#f0b84d;
+  --brand:#2f6fb3; --brand-hi:#86b6ea; --brand-ink:#ffffff;
+  --accent:#2f6fb3; --accent-ink:#ffffff; --focus:#f0b84d;
   --route:#ff4fd2; --good:#4fbf86; --warn:#e8ad45; --bad:#ec6464; --ifr:#ec6464; --mvfr:#6aa6ff; --lifr:#ff4fd2;
   --good-bg:rgba(79,191,134,.14); --warn-bg:rgba(232,173,69,.15); --bad-bg:rgba(236,100,100,.15);
   --ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Arial,sans-serif; --cond:"IBM Plex Sans Condensed","IBM Plex Sans",Arial,sans-serif;
@@ -22,13 +22,13 @@
 }
 :root[data-theme="light"]{
   --bg:#eef1f4; --panel:#ffffff; --raise:#f4f6f8; --sunk:#f7f9fa; --line:#d5dce2; --line2:#b9c4cd; --fg:#16212b; --muted:#5a6a78;
-  --brand:#8e1f24; --brand-hi:#8e1f24; --accent:#8e1f24; --accent-ink:#ffffff; --focus:#c47f00;
+  --brand:#1f5a99; --brand-hi:#1f5a99; --accent:#1f5a99; --accent-ink:#ffffff; --focus:#c47f00;
   --route:#c4128f; --good:#1d7f4c; --warn:#9a5d00; --bad:#bf2a2a; --ifr:#bf2a2a; --mvfr:#1f5fc4; --lifr:#c4128f;
   --good-bg:#e1f2e8; --warn-bg:#fbefd6; --bad-bg:#fae3e3; color-scheme:light;
 }
 @media (prefers-color-scheme: light){:root[data-theme="auto"]{
   --bg:#eef1f4; --panel:#ffffff; --raise:#f4f6f8; --sunk:#f7f9fa; --line:#d5dce2; --line2:#b9c4cd; --fg:#16212b; --muted:#5a6a78;
-  --brand:#8e1f24; --brand-hi:#8e1f24; --accent:#8e1f24; --accent-ink:#ffffff; --focus:#c47f00;
+  --brand:#1f5a99; --brand-hi:#1f5a99; --accent:#1f5a99; --accent-ink:#ffffff; --focus:#c47f00;
   --route:#c4128f; --good:#1d7f4c; --warn:#9a5d00; --bad:#bf2a2a; --ifr:#bf2a2a; --mvfr:#1f5fc4; --lifr:#c4128f;
   --good-bg:#e1f2e8; --warn-bg:#fbefd6; --bad-bg:#fae3e3; color-scheme:light}}
 *{box-sizing:border-box}
@@ -360,9 +360,9 @@ body.packview #pack{display:block;position:fixed;inset:0;z-index:4000;background
 .ppage.doc,.ppage.chart{aspect-ratio:auto;padding:2.5%;color:#000;font:11px/1.35 Arial,Helvetica,sans-serif}
 .ppage.chart{aspect-ratio:841.92/595.32;display:flex;flex-direction:column}
 .ppage .wxc{flex:1;min-height:0;width:100%;object-fit:contain;position:static}
-.dh{display:flex;align-items:center;gap:12px;border-bottom:2px solid #8b1a1a;padding-bottom:6px;margin-bottom:10px}
-.dh img{position:static;width:150px;height:auto}
-.dh b{display:block;font-size:16px;color:#8b1a1a}.dh span{font-size:10px;color:#333}
+.dh{display:flex;align-items:center;gap:10px;border-bottom:2px solid #1f5a99;padding-bottom:6px;margin-bottom:10px}
+.dh img{position:static;width:34px;height:34px}.dh .dhn{display:block;font-size:9px;color:#555;font-weight:600}
+.dh b{display:block;font-size:16px;color:#1f5a99}.dh span{font-size:10px;color:#333}
 .dh .dr{margin-left:auto;text-align:right}
 .wxcols{columns:2;column-gap:18px}.ntcols{columns:2;column-gap:18px}
 .wxb,.nn{break-inside:avoid}.wxb h3,.nt h3{font-size:12px;margin:8px 0 4px;color:#000}.nt h3 small{font-weight:400;color:#444}
@@ -393,7 +393,7 @@ body{font-size:15.5px;font-feature-settings:"tnum" 1}
 /* rail */
 #rail{background:var(--sunk);gap:1px;padding-top:calc(var(--sat) + 10px)}
 .brandmark{display:flex;flex-direction:column;align-items:center;gap:4px;padding:2px 0 12px;margin:0 6px 8px;border-bottom:1px solid var(--line)}
-.brandmark i{display:block;width:44px;height:43px;background:var(--brand-hi);-webkit-mask:url(afm/cea-eagle.png) center/contain no-repeat;mask:url(afm/cea-eagle.png) center/contain no-repeat}
+.brandmark svg{width:40px;height:40px;color:var(--brand-hi)}
 .brandmark span{font:600 10.5px/1.15 var(--cond);color:var(--muted);text-align:center}
 #rail button{font:500 12px/1.15 var(--ui);letter-spacing:0;text-transform:none;border-radius:6px;padding:9px 2px 8px;position:relative}
 #rail button svg{stroke-width:1.6}
@@ -455,7 +455,7 @@ tr.best td{color:var(--brand-hi);font-weight:600}
 .gpsbar b{font:600 22px var(--cond);color:var(--fg)}
 .disclaimer{font:500 11.5px var(--ui);letter-spacing:0;text-transform:none;color:var(--warn)}
 .rb-sum b{font-family:var(--cond)}.rb-sum span{font-family:var(--ui)}
-.apt-ic{background:var(--brand,#b8333a)}
+.apt-ic{background:#2f6fb3}
 .apt-lbl,.pop b,.results button b{font-family:var(--cond)}
 .wx .hd b{font:600 18px var(--cond)}
 .verdict{font-size:16px;padding:12px 14px;border-radius:6px;border-left:4px solid var(--line2);background:var(--panel)}
