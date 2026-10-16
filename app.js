@@ -113,6 +113,7 @@ function renderApt(icao){
     <div class="ro"><div class="k">Circuit alt</div><div class="v">${c._alt?esc(c._alt)+'<small> ft</small>':'<small>add from AIP</small>'}</div></div>
     <div class="ro"><div class="k">Landings logged</div><div class="v">${tot}</div></div>
   </div>
+  <div class="card" id="ap_charts"></div>
   <div class="card"><div class="row between"><h2 style="margin:0">Weather</h2><button type="button" data-act="wx">Refresh</button></div><div id="ap_wx" class="wxout" style="margin-top:10px"><p class="sub">Loading METAR…</p></div>
     <div class="tbl" id="ap_rwind" style="margin-top:12px"></div></div>
   <div class="grid2">
@@ -133,7 +134,7 @@ function renderApt(icao){
     ${V.length?`<div class="tbl"><table><thead><tr><th>Name</th><th>Position</th><th>Use</th><th></th></tr></thead><tbody>${V.map((v,i)=>`<tr><td><b>${esc(v.n)}</b></td><td>${dm(v.lat,1)} ${dm(v.lon,0)}</td><td class="wrap">${esc(v.note||'')}</td><td><button type="button" class="x" data-vr="${i}" title="Add to route">＋</button><button type="button" class="x" data-vd="${i}" aria-label="Delete VRP">×</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="empty">No VRPs yet. Add them from the AIP visual approach chart.</p>'}
     <div class="vrpform" style="margin-top:10px"><label>Name<input id="v_n" placeholder="e.g. VRP name"></label><label>Lat<input id="v_la" placeholder="N35 20.4"></label><label>Lon<input id="v_lo" placeholder="E025 10.8"></label><button type="button" id="v_add">Add VRP</button></div>
     <label style="margin-top:8px">Entry/exit use<input id="v_note" placeholder="e.g. entry for rwy 27, report at 2000 ft"></label></div>`;
-  loadAptWx(a);
+  loadAptWx(a);renderAptCharts(icao);
 }
 async function loadAptWx(a){
   const box=$('ap_wx');if(!box)return;
@@ -277,8 +278,8 @@ function initMap(){
   if(S.get('lyr_nav',false))navL.addTo(map);$('m_nav').checked=S.get('lyr_nav',false);
   if(S.get('lyr_enr',true))enrL.addTo(map);if(S.get('lyr_oth',false))othL.addTo(map);if(S.get('lyr_vrp',true))vrpL.addTo(map);
   $('m_enr').checked=S.get('lyr_enr',true);$('m_oth').checked=S.get('lyr_oth',false);$('m_vrp').checked=S.get('lyr_vrp',true);
-  setupOaip();drawVRPs();drawRoute();updRouteBar();
-  map.on('click',e=>{if(!routeMode)return;addWpt({n:'WP'+(wpts.length+1),lat:+e.latlng.lat.toFixed(5),lon:+e.latlng.lng.toFixed(5)})});
+  setupOaip();drawVRPs();drawRoute();updRouteBar();setTimeout(restoreOverlays,0);
+  map.on('click',e=>{if(alignState&&alignState.step%2===1){alignMapClick(e.latlng);return}if(!routeMode)return;addWpt({n:'WP'+(wpts.length+1),lat:+e.latlng.lat.toFixed(5),lon:+e.latlng.lng.toFixed(5)})});
   map.on('moveend',()=>{const c=map.getCenter();S.set('mapc',[+c.lat.toFixed(4),+c.lng.toFixed(4)]);S.set('mapz',map.getZoom())});
   window._redraw=()=>{drawRoute()};
 }
@@ -359,7 +360,7 @@ const NOTAM=[
  ['n_aip','AIP Greece AD 2 charts current','https://www.ead.eurocontrol.int/','EAD Basic AIP library, or the Greek AIS'],
  ['n_awg','Aero WebGIS route check','http://www.aopa.gr/awg','AOPA Hellas: airspace, VRPs, PPR and fuel'],
 ];
-const CHARTS=[
+const WXCHARTS=[
  ['c_swc','Significant weather chart','https://aviationweather.gov/sigwx','aviationweather.gov. Low-level SWC from your national met service'],
  ['c_wind','Winds and temperatures aloft','https://aviationweather.gov/gfa','aviationweather.gov'],
  ['c_msl','Surface pressure analysis','https://www.hnms.gr/','Hellenic National Meteorological Service'],
@@ -367,7 +368,7 @@ const CHARTS=[
 ];
 function chkList(list){return list.map(([id,t,u,s])=>`<label class="chk"><input type="checkbox" data-t="${id}" ${ticks[id]?'checked':''}><span class="grow"><a href="${u}" target="_blank" rel="noopener">${esc(t)}</a><span class="src">${esc(s)}</span></span></label>`).join('')}
 let custom=S.get('custom',[]);
-function renderBrief(){$('b_notam').innerHTML=chkList(NOTAM);$('b_charts').innerHTML=chkList(CHARTS);
+function renderBrief(){$('b_notam').innerHTML=chkList(NOTAM);$('b_charts').innerHTML=chkList(WXCHARTS);
   $('b_custom').innerHTML=custom.length?custom.map((c,i)=>`<label class="chk"><input type="checkbox" data-t="u${i}" ${ticks['u'+i]?'checked':''}><span class="grow"><a href="${esc(c.u)}" target="_blank" rel="noopener">${esc(c.n)}</a><span class="src">${esc(c.u)}</span></span><button type="button" class="x" data-cdel="${i}" aria-label="Remove link">×</button></label>`).join(''):'<p class="empty">Add your Greek AIS, met office or school portal.</p>';countBrief()}
 function countBrief(){const bx=[...document.querySelectorAll('#v-brief [data-t]')];const n=bx.filter(b=>b.checked).length;$('b_count').textContent=n+'/'+bx.length;const ok=n&&n===bx.length;$('b_pill').className='pill '+(ok?'good':'warn');$('b_pill').textContent=ok?'Reviewed':'Incomplete'}
 $('v-brief').addEventListener('change',e=>{const t=e.target.dataset.t;if(!t)return;ticks[t]=e.target.checked;S.set('ticks',ticks);countBrief()});
@@ -448,6 +449,96 @@ $('s_keyclear').onclick=()=>{S.set('oaipkey','');keyStat();if(map)setupOaip()};
 const BK=['tglog','sess','circ','vrps','route','custom','risk','theme','base'];
 $('s_export').onclick=()=>{const o={app:'da40d-efb',v:1,exported:new Date().toISOString()};BK.forEach(k=>o[k]=S.get(k,null));download('efb-backup-'+todayISO()+'.json',JSON.stringify(o,null,1),'application/json');$('s_bstat').textContent='Backup exported. The openAIP key is not included.'};
 $('s_import').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(o.app!=='da40d-efb')throw 0;BK.forEach(k=>{if(o[k]!=null)S.set(k,o[k])});$('s_bstat').textContent='Backup restored. Reloading…';setTimeout(()=>location.reload(),800)}catch(x){$('s_bstat').textContent='That file is not a flight bag backup.'}};r.readAsText(f)};
+
+
+/* ---------- charts ---------- */
+const CHARTS=window.EFB_CHARTS||{};
+const GROUPS=[['Visual',['VFR','VAC']],['Aerodrome',['ADC','APDC','AOC','PATC']],['Departures',['SID']],['Arrivals',['STAR']],['Approaches',['IAC']],['Other',['ASMAC']]];
+function renderAptCharts(icao){
+  const box=$('ap_charts');if(!box)return;const c=CHARTS[icao];
+  if(!c){box.innerHTML='<h2>Charts</h2><p class="empty">No AIP charts for this aerodrome.</p>';return}
+  const used=new Set();
+  const grp=GROUPS.map(([g,ts])=>{const l=c.charts.filter(x=>ts.includes(x.t));l.forEach(x=>used.add(x.k));return [g,l]}).filter(x=>x[1].length);
+  const rest=c.charts.filter(x=>!used.has(x.k));if(rest.length)grp.push(['Other',rest]);
+  box.innerHTML=`<div class="row between"><h2 style="margin:0">Charts · AIP</h2><div class="row">${c.pdf?`<a class="btn" href="charts/${c.pdf}" target="_blank" rel="noopener">AD 2 text (PDF)</a>`:''}<button type="button" id="ch_off">Save for offline</button></div></div>
+   <p class="sub">${esc(AIRAC)}. ◎ = already aligned to the map.</p>
+   ${grp.map(([g,l])=>`<h3>${g}</h3><div class="chips">${l.map(x=>`<button type="button" class="chip" data-ck="${esc(x.k)}">${esc(x.n)}${x.p.some(p=>p.geo||S.get('geo.'+icao+'/'+p.f,null))?' ◎':''}</button>`).join('')}</div>`).join('')}`;
+  box.onclick=e=>{const b=e.target.closest('[data-ck]');if(b)openChart(icao,b.dataset.ck,0);if(e.target.id==='ch_off')saveOffline(icao,e.target)};
+}
+async function saveOffline(icao,btn){
+  const c=CHARTS[icao];const urls=c.charts.flatMap(x=>x.p.map(p=>`charts/${icao}/${p.f}`));if(c.pdf)urls.push('charts/'+c.pdf);
+  if(!('caches' in window)){btn.textContent='Not supported here';return}
+  try{const cache=await caches.open('efb-charts-v1');let n=0;
+    for(const u of urls){if(!(await cache.match(u))){const r=await fetch(u);if(r.ok)await cache.put(u,r)}btn.textContent=`Saving ${++n}/${urls.length}`}
+    btn.textContent='Saved offline ✓'}catch(e){btn.textContent='Save failed, check connection'}
+}
+let cv=null,cvImg=null,cvCur=null,cvRot=0;
+function chartGeo(icao,p){return p.geo||S.get('geo.'+icao+'/'+p.f,null)}
+function openChart(icao,key,pg){
+  const c=CHARTS[icao].charts.find(x=>x.k===key);if(!c)return;pg=Math.max(0,Math.min(pg,c.p.length-1));cvCur={icao,key,pg,c};
+  const p=c.p[pg];$('cv').hidden=false;
+  $('cv_title').textContent=icao+' · '+c.n;$('cv_sub').textContent=chartGeo(icao,p)?' · aligned to map':'';
+  $('cv_pg').textContent=c.p.length>1?`${pg+1}/${c.p.length}`:'';$('cv_prev').hidden=$('cv_next').hidden=c.p.length<2;
+  if(!cv){cv=L.map('cv_map',{crs:L.CRS.Simple,minZoom:-4,maxZoom:3,zoomSnap:.25,attributionControl:false,zoomControl:false});L.control.zoom({position:'bottomright'}).addTo(cv);
+    cv.on('click',e=>{if(alignState&&alignState.step%2===0)alignChartClick(e.latlng)})}
+  if(cvImg)cv.removeLayer(cvImg);
+  const b=[[-p.h,0],[0,p.w]];cvImg=L.imageOverlay(`charts/${icao}/${p.f}`,b).addTo(cv);
+  setTimeout(()=>{cv.invalidateSize();cv.fitBounds(b)},30);
+}
+$('cv_close').onclick=()=>{$('cv').hidden=true;if(alignState){alignState=null;$('cv_hint').hidden=true}};
+$('cv_prev').onclick=()=>cvCur&&openChart(cvCur.icao,cvCur.key,cvCur.pg-1);
+$('cv_next').onclick=()=>cvCur&&openChart(cvCur.icao,cvCur.key,cvCur.pg+1);
+$('cv_ovl').onclick=()=>{if(!cvCur)return;const {icao,c,pg}=cvCur;const p=c.p[pg];
+  if(chartGeo(icao,p)){$('cv').hidden=true;go('map');setTimeout(()=>{addOverlay(icao,c.k,pg);fitOverlay(icao+'/'+p.f)},250);return}
+  alignState={icao,key:c.k,pg,p,step:0,pts:[]};
+  $('cv_hint').hidden=false;$('cv_hint').textContent='Align step 1 of 4: tap a point you can identify exactly on the chart (runway threshold, VRP, island tip).';};
+/* alignment: chart pt1 -> map pt1 -> chart pt2 -> map pt2 */
+let alignState=null;
+function alignChartClick(ll){const s=alignState;s.pts.push({px:ll.lng,py:-ll.lat});s.step++;
+  L.circleMarker(ll,{radius:8,color:'#ff4fd2',weight:3}).addTo(cv);
+  $('cv').hidden=true;go('map');$('m_alignbar').hidden=false;$('al_msg').textContent=`Align step ${s.step+1} of 4: tap the same point on the map. Zoom in for accuracy.`}
+function alignMapClick(ll){const s=alignState;s.pts[s.pts.length-1].ll=ll;s.step++;$('m_alignbar').hidden=true;
+  if(s.step<4){$('cv').hidden=false;$('cv_hint').hidden=false;$('cv_hint').textContent='Align step 3 of 4: tap a second point on the chart, as far from the first as possible.';setTimeout(()=>cv.invalidateSize(),30);return}
+  const g=solve2(s.pts,s.p.w,s.p.h);if(!g){$('al_msg').textContent='The two points are too close. Try again.';alignState=null;return}
+  S.set('geo.'+s.icao+'/'+s.p.f,g);alignState=null;$('cv_hint').hidden=true;addOverlay(s.icao,s.key,s.pg);renderAptCharts&&0;
+  setTimeout(()=>fitOverlay(s.icao+'/'+s.p.f),200)}
+$('al_cancel').onclick=()=>{alignState=null;$('m_alignbar').hidden=true;$('cv_hint').hidden=true};
+const R=6378137;
+const merc=ll=>[rad(ll.lng)*R,Math.log(Math.tan(Math.PI/4+rad(ll.lat)/2))*R];
+const unmerc=(x,y)=>[+(deg(2*Math.atan(Math.exp(y/R))-Math.PI/2)).toFixed(6),+deg(x/R).toFixed(6)];
+function solve2(pts,w,h){/* similarity transform, chart px (y down) -> mercator */
+  const [a,b]=pts;const p1=[a.px,-a.py],p2=[b.px,-b.py],m1=merc(a.ll),m2=merc(b.ll);
+  const dp=[p2[0]-p1[0],p2[1]-p1[1]],dm=[m2[0]-m1[0],m2[1]-m1[1]];const den=dp[0]**2+dp[1]**2;if(Math.sqrt(den)<40)return null;
+  const s=[(dm[0]*dp[0]+dm[1]*dp[1])/den,(dm[1]*dp[0]-dm[0]*dp[1])/den];
+  const T=(x,y)=>{const q=[x-p1[0],-y-p1[1]];return unmerc(m1[0]+s[0]*q[0]-s[1]*q[1],m1[1]+s[1]*q[0]+s[0]*q[1])};
+  return [T(0,0),T(w,0),T(0,h)];
+}
+/* affine image overlay on the main map */
+const AffineImage=L.Layer.extend({
+  initialize(url,geo,w,h,op){this.url=url;this.geo=geo;this.w=w;this.h=h;this.op=op},
+  onAdd(m){this._m=m;const i=this._img=L.DomUtil.create('img','chart-ovl');i.src=this.url;i.style.width=this.w+'px';i.style.height=this.h+'px';i.style.opacity=this.op;
+    m.getPane('overlayPane').appendChild(i);m.on('zoomend viewreset moveend',this._up,this);m.on('zoomstart',this._hide,this);this._up()},
+  onRemove(m){this._img.remove();m.off('zoomend viewreset moveend',this._up,this);m.off('zoomstart',this._hide,this)},
+  _hide(){this._img.style.visibility='hidden'},
+  _up(){const m=this._m,[tl,tr,bl]=this.geo.map(g=>m.latLngToLayerPoint(g));
+    const a=(tr.x-tl.x)/this.w,b=(tr.y-tl.y)/this.w,c=(bl.x-tl.x)/this.h,d=(bl.y-tl.y)/this.h;
+    this._img.style.transform=`matrix(${a},${b},${c},${d},${tl.x},${tl.y})`;this._img.style.visibility=''},
+  setOpacity(o){this.op=o;if(this._img)this._img.style.opacity=o}
+});
+const ovls={};
+function addOverlay(icao,key,pg){const c=CHARTS[icao].charts.find(x=>x.k===key);const p=c.p[pg];const id=icao+'/'+p.f;const g=chartGeo(icao,p);if(!g||!map)return;
+  if(ovls[id])map.removeLayer(ovls[id].l);
+  const st=S.get('ovl',{});const op=st[id]?st[id].op:.75;
+  ovls[id]={l:new AffineImage(`charts/${icao}/${p.f}`,g,p.w,p.h,op).addTo(map),n:icao+' '+c.n+(c.p.length>1?' p'+(pg+1):''),icao,key,pg};
+  st[id]={icao,key,pg,op};S.set('ovl',st);renderOvlList()}
+function fitOverlay(id){const o=ovls[id];if(o&&map)map.fitBounds(L.latLngBounds(o.l.geo).pad(-.05))}
+function renderOvlList(){const el=$('m_ovl');const ids=Object.keys(ovls);
+  el.innerHTML=ids.length?ids.map(id=>`<div class="ovlrow"><span>${esc(ovls[id].n)}</span><input type="range" min="0.15" max="1" step="0.05" value="${ovls[id].l.op}" data-op="${esc(id)}" aria-label="Opacity"><button type="button" class="x" data-fit="${esc(id)}" title="Zoom to chart">⤢</button><button type="button" class="x" data-rm="${esc(id)}" aria-label="Remove overlay">×</button></div>`).join('')+'<p class="sub">Alignment is approximate. Never use an overlay for navigation.</p>':'<p class="sub">Open a chart from an airport page and choose Overlay on map.</p>'}
+$('m_ovl').addEventListener('input',e=>{const id=e.target.dataset.op;if(!id)return;ovls[id].l.setOpacity(+e.target.value);const st=S.get('ovl',{});if(st[id]){st[id].op=+e.target.value;S.set('ovl',st)}});
+$('m_ovl').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.fit)fitOverlay(b.dataset.fit);
+  if(b.dataset.rm){const id=b.dataset.rm;map.removeLayer(ovls[id].l);delete ovls[id];const st=S.get('ovl',{});delete st[id];S.set('ovl',st);renderOvlList()}});
+function restoreOverlays(){const st=S.get('ovl',{});Object.values(st).forEach(o=>{try{addOverlay(o.icao,o.key,o.pg)}catch(e){}})}
 
 /* ---------- boot ---------- */
 renderBrief();drawWind();calcDA();score();keyStat();

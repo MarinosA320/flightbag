@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 <div id="app">
@@ -45,7 +45,10 @@
         <label class="sw"><input type="checkbox" id="m_aifr"> IFR / RNAV points (AIP ENR 4.4)</label>
         <label class="sw"><input type="checkbox" id="m_nav"> VOR / NDB navaids</label>
         <label class="sw"><input type="checkbox" id="m_vrp" checked> Your VRPs</label>
+        <h3>Chart overlays</h3>
+        <div id="m_ovl"><p class="sub">Open a chart from an airport page and choose Overlay on map.</p></div>
       </div>
+      <div id="m_alignbar" class="routebar alignbar" hidden><b id="al_msg"></b><div class="row"><button type="button" id="al_cancel">Cancel</button></div></div>
       <div id="m_gpsbar" class="gpsbar" hidden>
         <div><span>GS</span><b id="g_gs">—</b><i>kt</i></div>
         <div><span>TRK</span><b id="g_trk">—</b><i>°T</i></div>
@@ -214,9 +217,19 @@
 
   </div>
 </div>
+<div id="cv" class="chartview" hidden>
+  <div class="cv-top">
+    <button type="button" id="cv_close" aria-label="Close chart">✕</button>
+    <div class="cv-title"><b id="cv_title"></b><span id="cv_sub"></span></div>
+    <div class="row cv-btns"><button type="button" id="cv_prev" aria-label="Previous page">‹</button><span id="cv_pg"></span><button type="button" id="cv_next" aria-label="Next page">›</button><button type="button" class="primary" id="cv_ovl">Overlay on map</button></div>
+  </div>
+  <div id="cv_map"></div>
+  <div id="cv_hint" class="cv-hint" hidden></div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="data.js?v=4"></script>
-<script src="points.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="data.js?v=5"></script>
+<script src="points.js?v=5"></script>
+<script src="charts.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
