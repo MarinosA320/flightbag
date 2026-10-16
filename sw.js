@@ -1,6 +1,6 @@
 /* Offline support: app files cached on install; map tiles cached as you view them. */
-const V='efb-v19', TILES='efb-tiles-v1', MAXT=4000;
-const SHELL=['./','index.html','style.css','app.js','plan.js','pack.js','account.js','perfdata.js','perfengine.js','data.js','points.js','charts.js','manifest.json','icon.svg','afm/cea-logo.png','icon-192.png','icon-512.png',
+const V='efb-v20', TILES='efb-tiles-v1', MAXT=4000;
+const SHELL=['./','index.html','style.css','app.js','plan.js','pack.js','route.js','enroute.js','account.js','perfdata.js','perfengine.js','data.js','points.js','charts.js','manifest.json','icon.svg','afm/cea-logo.png','icon-192.png','icon-512.png',
  'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css','https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V&&k!==TILES&&k!=='efb-charts-v1').map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
