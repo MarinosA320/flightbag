@@ -93,7 +93,8 @@ function briefIds(){const v=id=>{const el=$(id);return el?el.value.trim().toUppe
   W.forEach(w=>{if(E.BY[w.n])ids.push(w.n)});return [...new Set(ids.filter(x=>/^[A-Z]{4}$/.test(x)))]}
 const docHead=(t,sub)=>`<div class="dh"><img src="afm/cea-logo.png" alt=""><div><b>${esc(t)}</b><span>${esc(sub)}</span></div><span class="dr">${esc((P.NL.pic||'').toUpperCase())}<br>${date()} · ${esc(P.NL.acft||'')}</span></div>`;
 const utc=s=>{const d=new Date(s);return isNaN(d)?esc(s||''):d.toISOString().slice(0,16).replace('T',' ')+'Z'};
-async function wxDoc(ids){let w={};try{w=await E.getWx(ids)}catch(e){}
+async function wxDoc(ids){let w={},err='';try{w=await E.getWx(ids)}catch(e){err=e.message||'Weather could not be retrieved'}
+  if(err)return `<section class="ppage doc">${docHead('METAR / TAF',ids.join(' · '))}<p class="warnbox">${esc(err)}. Print the METAR/TAF from aviationweather.gov or the HNMS site and attach them to this pack.</p></section>`;
   const rows=ids.map(id=>{const x=w[id]||{};const a=E.BY[id];return `<section class="wxb"><h3>${id}${a?' · '+esc(a.name):''}</h3>
     <p class="lbl">METAR${x.metar&&x.metar.fltCat?' · '+esc(x.metar.fltCat):''}</p><pre>${x.metar?esc(x.metar.rawOb):'No METAR available for this aerodrome.'}</pre>
     <p class="lbl">TAF</p><pre>${x.taf?esc(x.taf.rawTAF).replace(/ (BECMG|TEMPO|FM\d|PROB\d\d)/g,'\n   $1'):'No TAF issued for this aerodrome.'}</pre></section>`}).join('');

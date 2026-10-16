@@ -61,11 +61,19 @@ async function getWx(ids){
   ids=[...new Set(ids.filter(i=>/^[A-Z]{4}$/.test(i)))];if(!ids.length)return {};
   const now=Date.now(),need=ids.filter(i=>!wxCache[i]||now-wxCache[i].t>8*60e3);
   if(need.length){
-    const q=need.join(',');
-    const [m,t]=await Promise.all([
-      fetch(`https://aviationweather.gov/api/data/metar?ids=${q}&format=json`).then(r=>{if(!r.ok)throw new Error(r.status);return r.text()}),
-      fetch(`https://aviationweather.gov/api/data/taf?ids=${q}&format=json`).then(r=>r.ok?r.text():'[]').catch(()=>'[]')]);
-    const mj=m.trim()?JSON.parse(m):[],tj=t.trim()?JSON.parse(t):[];
+    const q=need.join(',');let mj=null,tj=[],errs=[];
+    const J=async u=>{const r=await fetch(u,{cache:'no-store'});if(r.status===204)return [];if(!r.ok)throw new Error('HTTP '+r.status);const t=await r.text();return t.trim()?JSON.parse(t):[]};
+    if(window.EFB_SERVER){try{const j=await J('/api/wx/metar?ids='+q);mj=j.metar||[];tj=j.taf||[]}catch(e){errs.push('school server: '+e.message)}}
+    if(!mj){try{[mj,tj]=await Promise.all([J(`https://aviationweather.gov/api/data/metar?ids=${q}&format=json`),J(`https://aviationweather.gov/api/data/taf?ids=${q}&format=json`)])}catch(e){mj=null;errs.push('aviationweather.gov: '+(e.message||'blocked'))}}
+    if(!mj){/* fallback: NOAA raw text files, one per station */
+      try{mj=[];tj=[];await Promise.all(need.map(async id=>{
+        const m=await fetch(`https://tgftp.nws.noaa.gov/data/observations/metar/stations/${id}.TXT`,{cache:'no-store'}).then(r=>r.ok?r.text():'').catch(()=>null);
+        const t=await fetch(`https://tgftp.nws.noaa.gov/data/forecasts/taf/stations/${id}.TXT`,{cache:'no-store'}).then(r=>r.ok?r.text():'').catch(()=>null);
+        if(m===null&&t===null)throw new Error('blocked');
+        const body=s=>(s||'').split('\n').slice(1).join(' ').replace(/\s+/g,' ').trim();
+        if(body(m))mj.push({icaoId:id,rawOb:'METAR '+body(m),src:'NOAA'});if(body(t))tj.push({icaoId:id,rawTAF:body(t)})}))}
+      catch(e){mj=null;errs.push('NOAA: '+(e.message||'blocked'))}}
+    if(!mj){need.forEach(i=>wxCache[i]={t:0,metar:null,taf:null,err:errs.join('; ')});throw new Error('Weather could not be retrieved ('+errs.join('; ')+')')}
     need.forEach(i=>wxCache[i]={t:now,metar:null,taf:null});
     mj.forEach(o=>{if(wxCache[o.icaoId]&&!wxCache[o.icaoId].metar)wxCache[o.icaoId].metar=o});
     tj.forEach(o=>{if(wxCache[o.icaoId]&&!wxCache[o.icaoId].taf)wxCache[o.icaoId].taf=o});
