@@ -400,17 +400,9 @@ function checklistSheet(){const st=S.get('pp',{t:'dual',c:{}});const L={dual:'Du
    <table class="pt">${items.map((x,i)=>`<tr><td style="width:6%">${i+1}</td><td style="text-align:left">${esc(x)}</td><td style="width:8%">${st.c[st.t+i]?'✓':''}</td></tr>`).join('')}</table>
    <p class="ps-n">Risk assessment: ${esc(document.getElementById('k_total')?document.getElementById('k_total').textContent:'')} points · ${esc(document.getElementById('k_pill')?document.getElementById('k_pill').textContent:'')}</p>
    <p class="ps-n">NOTE</p><div style="border:1px solid #000;height:120px"></div></div>`}
-function printSheets(which){
-  const pack=$('pack');let html='';
-  if(which.includes('check'))html+=checklistSheet();
-  if(which.includes('mb')){renderMB();const m=document.querySelector('#ac_mb .mbp');if(m)html+=`<div class="psheet">${m.outerHTML}</div>`}
-  if(which.includes('perf'))html+=perfSheet();
-  if(which.includes('nav')){E.calcNav();const n=$('cea');if(n)html+=`<div class="psheet">${n.outerHTML.replace('id="cea"','')}</div>`}
-  pack.innerHTML=html;document.body.classList.add('packprint');
-  setTimeout(()=>{window.print();setTimeout(()=>document.body.classList.remove('packprint'),400)},60);
-}
+function printSheets(which){if(window.PACK)window.PACK.open(which)}
 window.addEventListener('afterprint',()=>document.body.classList.remove('packprint'));
-window.EFB.printPack=()=>printSheets(['check','mb','perf','nav']);
+window.EFB.printPack=()=>printSheets(['all']);
 
 /* ---------- tabs ---------- */
 function tab(t){document.querySelectorAll('#ac_tabs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.t===t));['mb','perf','fleet'].forEach(k=>$('ac_'+k).hidden=k!==t);
@@ -419,7 +411,7 @@ $('ac_tabs').addEventListener('click',e=>{const b=e.target.closest('button');if(
 $('ac_pack').onclick=()=>window.EFB.printPack();
 window.addEventListener('hashchange',()=>{if(location.hash==='#acft')tab(S.get('actab','mb'));if(location.hash==='#nav'){fillHeader();renderAtis();E.calcNav()}});
 
-window.PLAN={renderLog,AFM,mbCalc,check};
+window.PLAN={renderLog,AFM,mbCalc,check,calcPerf,interp,renderMB,get NL(){return NL},get MB(){return MB},get PF(){return PF},get FLEET(){return FLEET}};
 fillHeader();renderAtis();tab(S.get('actab','mb'));E.calcNav();
 })();
 /* ---------- school preflight paperwork (Student Preflight Checklist and Guide) ---------- */
