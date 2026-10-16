@@ -13,7 +13,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 <div id="app">
@@ -116,10 +116,30 @@
           <label>Wind from °T<input id="n_wd" inputmode="decimal" value="320"></label>
           <label>Wind kt<input id="n_ws" inputmode="decimal" value="15"></label>
           <label>Variation °E<input id="n_var" inputmode="decimal" value="5"></label>
-        </div><p class="sub">TAS is your planning value. The fuel column unlocks with the AFM cruise table.</p></div>
+        </div><p class="sub">Defaults for every leg. Variation 5°E per the current Greek charts.</p></div>
         <div class="card"><h2>Waypoints</h2><div class="tbl"><table><thead><tr><th>#</th><th>Name</th><th>Lat</th><th>Lon</th><th></th></tr></thead><tbody id="n_wpts"></tbody></table></div>
           <p class="sub">Coordinates take decimal (35.339) or degrees and minutes (N35 20.4).</p></div>
-        <div class="card"><h2>Legs</h2><div class="tbl"><table><thead><tr><th>Leg</th><th>TC</th><th>WCA</th><th>TH</th><th>MH</th><th>Dist</th><th>GS</th><th>ETE</th><th>Fuel</th></tr></thead><tbody id="n_log"></tbody></table></div></div>
+        <div class="card navhead">
+          <div class="row between"><h2 style="margin:0">CEA-OPS-06 · VFR navigation flight log</h2><button type="button" class="primary" id="nl_print">Print / PDF</button></div>
+          <div class="fields five" style="margin-top:10px">
+            <label>Pilot in command<input id="nl_pic" autocomplete="off"></label>
+            <label>Aircraft<select id="nl_acft"></select></label>
+            <label>Date<input id="nl_date" type="date"></label>
+            <label>T/O time<input id="nl_tot" placeholder="HH:MM" maxlength="5"></label>
+            <label>Planning fuel flow L/h<input id="nl_ff" inputmode="decimal" placeholder="AFM fuel flow chart"></label>
+          </div>
+          <p class="sub">FREDA every leg: Fuel · Radios · Engine-FADEC · Direction · Altitude. Times are local.</p>
+        </div>
+        <div class="card"><div class="tbl"><table class="navlog"><thead><tr><th>From → To</th><th>MSA</th><th>Route alt ft</th><th>TAS</th><th>W/V</th><th>Track T</th><th>Drift</th><th>H(T)</th><th>Var</th><th>H(M)</th><th>GS</th><th>Dist nm</th><th>Time min</th><th>ETA</th><th>ATA</th></tr></thead><tbody id="n_log"></tbody></table></div>
+          <p class="sub">Tap MSA, altitude, TAS or wind on any leg to override the defaults above. Tap ATA to stamp the current time.</p></div>
+        <div class="grid2">
+          <div class="card"><h2>ATIS</h2><div class="fields three" id="nl_atis"></div></div>
+          <div class="card"><h2>Fuel consumption</h2><div id="nl_fuel"></div></div>
+        </div>
+        <div class="grid2">
+          <div class="card"><h2>Comm / Nav</h2><div class="tbl"><table id="nl_comm"></table></div><p class="sub">Filled from the route's airports and nearest navaids. Tap to edit.</p></div>
+          <div class="card"><h2>Remarks / notes</h2><textarea id="nl_rem" rows="8"></textarea></div>
+        </div>
       </div>
     </section>
 
@@ -182,13 +202,11 @@
     <!-- AIRCRAFT -->
     <section class="view scroll" id="v-acft" data-view="acft" hidden>
       <div class="page">
-        <header class="ph"><div><h1>DA40 D</h1><p class="sub">These pages calculate from the AFM. They stay locked until the figures are entered and checked against the book.</p></div></header>
-        <div class="grid2">
-          <div class="card lockcard"><span class="pill warn">Needs AFM data</span><h2>Mass and balance</h2><ul><li>Empty mass, arm and moment for each registration</li><li>Station arms: front seats, rear seats, baggage, fuel (AFM §6)</li><li>Mass limits and CG envelope corners</li><li>Fitted tanks: standard or long-range</li></ul></div>
-          <div class="card lockcard"><span class="pill warn">Needs AFM data</span><h2>Performance</h2><ul><li>Take-off and landing tables by mass, PA and temperature (AFM §5)</li><li>Wind, slope and grass corrections</li><li>Climb table and your school's safety factors</li></ul></div>
-          <div class="card lockcard"><span class="pill warn">Needs AFM data</span><h2>Fuel</h2><ul><li>Cruise table: power, fuel flow and TAS by altitude</li><li>Usable fuel, taxi allowance, reserve policy</li></ul></div>
-          <div class="card lockcard"><span class="pill warn">Needs AFM data</span><h2>Checklists</h2><ul><li>Normal and emergency procedures (AFM §3 and §4) or your school's checklist, transcribed word for word</li></ul></div>
-        </div>
+        <header class="ph"><div><h1>DA40 D</h1><p class="sub">Mass and balance and performance from AFM sections 5 and 6 as supplied by the school. Cross-check against the aircraft's own AFM.</p></div>
+          <div class="seg" id="ac_tabs"><button type="button" data-t="mb" aria-pressed="true">Mass &amp; balance</button><button type="button" data-t="perf">Performance</button><button type="button" data-t="fleet">Fleet</button></div></header>
+        <div id="ac_mb"></div>
+        <div id="ac_perf" hidden></div>
+        <div id="ac_fleet" hidden></div>
       </div>
     </section>
 
@@ -217,6 +235,7 @@
 
   </div>
 </div>
+<div id="printarea"></div>
 <div id="cv" class="chartview" hidden>
   <div class="cv-top">
     <button type="button" id="cv_close" aria-label="Close chart">✕</button>
@@ -230,6 +249,7 @@
 <script src="data.js?v=5"></script>
 <script src="points.js?v=5"></script>
 <script src="charts.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="app.js?v=6"></script>
+<script src="plan.js?v=6"></script>
 </body>
 </html>

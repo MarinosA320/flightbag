@@ -217,10 +217,11 @@ function gc(a,b){const p1=rad(a.lat),p2=rad(b.lat),dl=rad(b.lon-a.lon);
   const d=2*Math.asin(Math.sqrt(Math.sin((p2-p1)/2)**2+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2))*3440.065;
   const tc=norm(deg(Math.atan2(Math.sin(dl)*Math.cos(p2),Math.cos(p1)*Math.sin(p2)-Math.sin(p1)*Math.cos(p2)*Math.cos(dl))));return {d,tc}}
 function legs(){
-  const tas=num($('n_tas').value),wd=num($('n_wd').value),ws=num($('n_ws').value)||0,vr=num($('n_var').value)||0;const out=[];
+  const TAS=num($('n_tas').value),WD=num($('n_wd').value),WS=num($('n_ws').value)||0,vr=num($('n_var').value)||0;const out=[];
   for(let i=1;i<wpts.length;i++){const a=wpts[i-1],b=wpts[i];const {d,tc}=gc(a,b);let wca=NaN,gs=NaN;
+    const tas=isFinite(num(b.tas))?num(b.tas):TAS,wd=isFinite(num(b.wd))?num(b.wd):WD,ws=isFinite(num(b.ws))?num(b.ws):WS;
     if(tas>0){const wdir=isFinite(wd)?wd:0;const x=ws*Math.sin(rad(wdir-tc))/tas;if(Math.abs(x)<1){wca=deg(Math.asin(x));gs=tas*Math.cos(rad(wca))-ws*Math.cos(rad(wdir-tc))}}
-    out.push({a,b,d,tc,wca,th:tc+wca,mh:tc+wca-vr,gs,ete:d/gs*60})}
+    out.push({a,b,i,d,tc,wca,th:tc+wca,mh:tc+wca-vr,gs,ete:d/gs*60,tas,wd,ws,vr})}
   return out;
 }
 function updRouteBar(){const L=legs();const d=L.reduce((s,l)=>s+l.d,0),t=L.reduce((s,l)=>s+l.ete,0);
@@ -229,10 +230,8 @@ function renderNav(){
   $('n_wpts').innerHTML=wpts.length?wpts.map((w,i)=>`<tr><td>${i+1}</td><td><input data-i="${i}" data-f="n" value="${esc(w.n)}"></td><td><input data-i="${i}" data-f="lat" value="${dm(w.lat,1)}"></td><td><input data-i="${i}" data-f="lon" value="${dm(w.lon,0)}"></td><td><button type="button" class="x" data-up="${i}" aria-label="Move up">↑</button><button type="button" class="x" data-rm="${i}" aria-label="Remove">×</button></td></tr>`).join(''):'<tr><td colspan="5" class="wrap" style="color:var(--muted)">No route yet. Plan one on the map, or add points from airport pages.</td></tr>';
   calcNav();
 }
-function calcNav(){const L=legs();let td=0,tt=0;
-  $('n_log').innerHTML=L.length?L.map(l=>{td+=l.d;tt+=l.ete;return `<tr><td>${esc(l.a.n)} → ${esc(l.b.n)}</td><td>${p3(l.tc)}</td><td>${isFinite(l.wca)?(l.wca>=0?'+':'')+l.wca.toFixed(0):'—'}</td><td>${isFinite(l.th)?p3(l.th):'—'}</td><td><b>${isFinite(l.mh)?p3(l.mh):'—'}</b></td><td>${l.d.toFixed(1)}</td><td>${isFinite(l.gs)?l.gs.toFixed(0):'—'}</td><td>${fmtT(l.ete)}</td><td style="color:var(--muted)">locked</td></tr>`}).join('')+`<tr><td><b>Total</b></td><td></td><td></td><td></td><td></td><td><b>${td.toFixed(1)}</b></td><td></td><td><b>${fmtT(tt)}</b></td><td></td></tr>`:'<tr><td colspan="9" class="wrap" style="color:var(--muted)">Add at least two points.</td></tr>';
-  updRouteBar();
-}
+function calcNav(){if(window.PLAN)PLAN.renderLog(legs());updRouteBar()}
+
 $('n_wpts').addEventListener('change',e=>{const t=e.target;if(t.dataset.i==null)return;const w=wpts[+t.dataset.i];
   if(t.dataset.f==='n')w.n=t.value.trim()||w.n;else{const v=parseCoord(t.value,t.dataset.f==='lat');if(!isFinite(v)){t.style.borderColor='var(--bad)';return}w[t.dataset.f]=v}
   saveRoute();renderNav()});
@@ -476,7 +475,7 @@ let cv=null,cvImg=null,cvCur=null,cvRot=0;
 function chartGeo(icao,p){return p.geo||S.get('geo.'+icao+'/'+p.f,null)}
 function openChart(icao,key,pg){
   const c=CHARTS[icao].charts.find(x=>x.k===key);if(!c)return;pg=Math.max(0,Math.min(pg,c.p.length-1));cvCur={icao,key,pg,c};
-  const p=c.p[pg];$('cv').hidden=false;
+  const p=c.p[pg];$('cv').hidden=false;$('cv_ovl').hidden=false;
   $('cv_title').textContent=icao+' · '+c.n;$('cv_sub').textContent=chartGeo(icao,p)?' · aligned to map':'';
   $('cv_pg').textContent=c.p.length>1?`${pg+1}/${c.p.length}`:'';$('cv_prev').hidden=$('cv_next').hidden=c.p.length<2;
   if(!cv){cv=L.map('cv_map',{crs:L.CRS.Simple,minZoom:-4,maxZoom:3,zoomSnap:.25,attributionControl:false,zoomControl:false});L.control.zoom({position:'bottomright'}).addTo(cv);
@@ -540,6 +539,11 @@ $('m_ovl').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
   if(b.dataset.rm){const id=b.dataset.rm;map.removeLayer(ovls[id].l);delete ovls[id];const st=S.get('ovl',{});delete st[id];S.set('ovl',st);renderOvlList()}});
 function restoreOverlays(){const st=S.get('ovl',{});Object.values(st).forEach(o=>{try{addOverlay(o.icao,o.key,o.pg)}catch(e){}})}
 
+function viewImage(url,w,h,title){cvCur=null;$('cv').hidden=false;$('cv_ovl').hidden=true;$('cv_title').textContent=title;$('cv_sub').textContent='';$('cv_pg').textContent='';$('cv_prev').hidden=$('cv_next').hidden=true;
+  if(!cv){cv=L.map('cv_map',{crs:L.CRS.Simple,minZoom:-4,maxZoom:3,zoomSnap:.25,attributionControl:false,zoomControl:false});L.control.zoom({position:'bottomright'}).addTo(cv);cv.on('click',e=>{if(alignState&&alignState.step%2===0)alignChartClick(e.latlng)})}
+  if(cvImg)cv.removeLayer(cvImg);const b=[[-h,0],[0,w]];cvImg=L.imageOverlay(url,b).addTo(cv);setTimeout(()=>{cv.invalidateSize();cv.fitBounds(b)},30)}
+window.EFB={viewImage,get wpts(){return wpts},legs,S,BY,APTS,NAVAIDS,esc,num,p3,fmtT,go,todayISO,dm,saveRoute,gc,calcNav,
+  get ownPos(){return window._ownPos||null}};
 /* ---------- boot ---------- */
 renderBrief();drawWind();calcDA();score();keyStat();
 route();
