@@ -104,7 +104,7 @@ async function notamDoc(ids){const all=[...ids,'LGGG'];
     const now=Date.now();
     const sec=all.map(id=>{const L=(j.notams[id]||[]).slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));const a=E.BY[id];
       return `<section class="nt"><h3>${id}${id==='LGGG'?' · Athinai FIR':a?' · '+esc(a.name):''} <small>${j.errors&&j.errors[id]?'· could not be retrieved: '+esc(j.errors[id]):L.length+' NOTAM'+(L.length===1?'':'s')}</small></h3>
-        ${L.map(n=>`<div class="nn"><b>${esc(n.id)}</b><pre>${esc(n.text)}</pre></div>`).join('')||(j.errors&&j.errors[id]?'':'<p class="sub">No NOTAMs in force.</p>')}</section>`}).join('');
+        ${L.map(n=>`<div class="nn"><b>${esc(n.id)}</b>${n.category?` <span class="nc">${esc(n.category)}</span>`:''}<pre>${esc(n.text)}</pre>${n.plain?`<p class="np">${esc(n.plain)}</p>`:''}</div>`).join('')||(j.errors&&j.errors[id]?'':'<p class="sub">No NOTAMs in force.</p>')}</section>`}).join('');
     return `<section class="ppage doc">${docHead('NOTAM briefing',`${all.join(' · ')} · ${j.source} · retrieved ${utc(j.fetched)}`)}<div class="ntcols">${sec}</div><p class="foot">Check the official pre-flight information bulletin (EUROCONTROL EAD / Greek AIS) before flight. This list is a convenience copy.</p></section>`}
   catch(e){return `<section class="ppage doc">${docHead('NOTAM briefing',all.join(' · '))}<p class="warnbox">NOTAMs could not be retrieved (${esc(e.message||e)}). Obtain them from EUROCONTROL EAD or the Greek AIS and attach them to this pack.</p></section>`}}
 async function chartPages(){const SETS=[['swc','Significant weather chart'],['wind','Wind and temperature aloft'],['pressure','Surface pressure chart']];

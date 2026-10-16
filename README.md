@@ -31,6 +31,7 @@ It runs free on Cloudflare Pages. GitHub Pages cannot run it; on GitHub Pages th
    - `SESSION_SECRET`: any long random text (40+ characters)
    - `ADMIN_EMAIL`: the first administrator's e-mail
    - `ADMIN_CODE`: the first administrator's access code
+   - `NOTAMIFY_TOKEN` (optional): Notamify API token from notamify.com/api-manager. With it, NOTAMs come from Notamify (with plain-English summaries); without it, from FAA NOTAM Search. Results are cached 30 minutes.
 6. Deployments → Retry deployment. Open the `*.pages.dev` address and sign in with the administrator e-mail and code.
 7. Settings → Pilot accounts: create, view and delete accounts, or give someone a new access code.
 
