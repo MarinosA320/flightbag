@@ -3,17 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0a0f14">
+<meta name="theme-color" content="#111a22">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>DA40 D Flight Bag</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="style.css?v=17">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 <div id="app">
@@ -172,14 +170,12 @@
     <!-- RISK -->
     <section class="view scroll" id="v-risk" data-view="risk" hidden>
       <div class="page">
-        <header class="ph"><div><h1>Risk assessment</h1><p class="sub">Draft PAVE scoring. Your school sets the final scores and thresholds.</p></div><div class="briefstat"><b id="k_total">0</b><span id="k_pill" class="pill good">Go</span></div></header>
+        <header class="ph"><div><h1>Preflight risk assessment</h1><p class="sub">CEA-SFT-10. Weather, crosswind, day/night and your hours are scored from the route, METAR/TAF and your profile; tap any other score to change it.</p></div>
+          <div class="briefstat"><b id="k_total">0</b><span id="k_pill" class="pill">–</span></div></header>
         <p class="verdict" id="k_msg"></p>
-        <div class="grid2">
-          <div class="card"><h2>IMSAFE</h2><p class="sub">Any tick means you do not fly today.</p><div id="k_imsafe"></div></div>
-          <div class="card"><h2>Thresholds</h2><div class="fields two"><label>Caution from<input id="k_t1" inputmode="numeric" value="11"></label><label>No-go from<input id="k_t2" inputmode="numeric" value="21"></label></div>
-            <div class="row end"><button type="button" id="k_reset">Reset answers</button></div></div>
-        </div>
-        <div class="card" id="k_items"></div>
+        <div class="card"><div id="k_form"></div>
+          <div class="row end" style="margin-top:12px"><button type="button" id="k_reset">Clear my changes</button><button type="button" class="primary" id="k_print">Print CEA-SFT-10</button></div></div>
+        <div class="card"><h2>Pilot profile</h2><p class="sub">Used for licence, hours and familiar aerodromes. Stays on this device.</p><div id="k_prof"></div></div>
       </div>
     </section>
 
@@ -238,13 +234,14 @@
 <script src="data.js?v=11"></script>
 <script src="points.js?v=5"></script>
 <script src="charts.js?v=5"></script>
-<script src="app.js?v=19"></script>
+<script src="app.js?v=20"></script>
 <script src="perfdata.js?v=12"></script>
 <script src="perfengine.js?v=12"></script>
-<script src="plan.js?v=13"></script>
+<script src="plan.js?v=14"></script>
 <script src="enroute.js?v=2"></script>
 <script src="route.js?v=2"></script>
-<script src="pack.js?v=20"></script>
+<script src="risk.js?v=1"></script>
+<script src="pack.js?v=21"></script>
 <script src="account.js?v=13"></script>
 </body>
 </html>

@@ -35,7 +35,8 @@ const IC={
  set:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'
 };
 const NAV=[['map','Map'],['apts','Airports'],['tg','Circuits'],['nav','Navlog'],['brief','Brief'],['tools','Calc'],['risk','Risk'],['acft','DA40 D'],['set','Settings']];
-$('rail').innerHTML=NAV.map(([k,l],i)=>(k==='set'?'<div class="spacer"></div>':'')+`<button type="button" data-v="${k}"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>${l}</button>`).join('');
+$('rail').innerHTML='<div class="brandmark" title="Cretan Eagle Aviation Flight Academy"><i></i><span>Cretan Eagle<br>Flight Bag</span></div>'+NAV.map(([k,l],i)=>(k==='set'?'<div class="spacer"></div><div class="utc" aria-live="off"><b id="utc_t">--:--Z</b><span>UTC</span></div>':'')+`<button type="button" data-v="${k}"><svg viewBox="0 0 24 24" aria-hidden="true">${IC[k]}</svg>${l}</button>`).join('');
+(function utc(){const t=new Date();const el=$('utc_t');if(el)el.textContent=t.toISOString().slice(11,16)+'Z';setTimeout(utc,(60-t.getUTCSeconds())*1000)})();
 $('rail').addEventListener('click',e=>{const b=e.target.closest('button');if(b)go(b.dataset.v)});
 function go(v){location.hash=v}
 function route(){
@@ -60,6 +61,12 @@ const wxCache={};
 /* Briefing feed: METAR/TAF, NOTAMs and HNMS charts fetched every ~15 min by GitHub Actions (wx branch) */
 const FEED='https://raw.githubusercontent.com/MarinosA320/flightbag/wx/';
 async function feed(f){const r=await fetch(FEED+f+'?t='+Math.floor(Date.now()/120e3),{cache:'no-store'});if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+/* fill wind/temperature/QNH from the raw report when a source gives only the text (NOAA fallback) */
+function fillMetar(o){const r=' '+(o.rawOb||'')+' ';
+  if(o.wdir==null){const w=r.match(/\s(\d{3}|VRB)(\d{2,3})(?:G(\d{2,3}))?KT\s/);if(w){o.wdir=w[1]==='VRB'?'VRB':+w[1];o.wspd=+w[2];if(w[3])o.wgst=+w[3]}}
+  if(o.temp==null){const t=r.match(/\s(M?\d{2})\/(M?\d{2})?\s/);if(t){const f=x=>x==null?null:x[0]==='M'?-(+x.slice(1)):+x;o.temp=f(t[1]);o.dewp=f(t[2])}}
+  if(o.altim==null){const q=r.match(/\sQ(\d{4})\s/);if(q)o.altim=+q[1]}
+  return o}
 async function getWx(ids){
   ids=[...new Set(ids.filter(i=>/^[A-Z]{4}$/.test(i)))];if(!ids.length)return {};
   const now=Date.now(),need=ids.filter(i=>!wxCache[i]||now-wxCache[i].t>8*60e3);
@@ -79,7 +86,7 @@ async function getWx(ids){
       catch(e){mj=null;errs.push('NOAA: '+(e.message||'blocked'))}}
     if(!mj){need.forEach(i=>wxCache[i]={t:0,metar:null,taf:null,err:errs.join('; ')});throw new Error('Weather could not be retrieved ('+errs.join('; ')+')')}
     need.forEach(i=>wxCache[i]={t:now,metar:null,taf:null});
-    mj.forEach(o=>{if(wxCache[o.icaoId]&&!wxCache[o.icaoId].metar)wxCache[o.icaoId].metar=o});
+    mj.forEach(o=>{if(wxCache[o.icaoId]&&!wxCache[o.icaoId].metar)wxCache[o.icaoId].metar=fillMetar(o)});
     tj.forEach(o=>{if(wxCache[o.icaoId]&&!wxCache[o.icaoId].taf)wxCache[o.icaoId].taf=o});
   }
   const out={};ids.forEach(i=>out[i]=wxCache[i]);return out;
@@ -393,7 +400,7 @@ $('b_load').onclick=async()=>{const ids=['b_dep','b_dst','b_alt'].map(i=>$(i).va
 ['b_dep','b_dst','b_alt'].forEach(i=>$(i).addEventListener('input',e=>e.target.value=e.target.value.toUpperCase()));
 
 /* persist simple fields */
-document.querySelectorAll('#v-brief input[id],#v-tools input[id],#v-nav .fields input[id],#v-risk input[id]').forEach(i=>{if(['b_cname','b_curl'].includes(i.id))return;
+document.querySelectorAll('#v-brief input[id],#v-tools input[id],#v-nav .fields input[id]').forEach(i=>{if(['b_cname','b_curl'].includes(i.id))return;
   const v=S.get('f.'+i.id,null);if(v!=null)i.value=v;i.addEventListener('input',()=>S.set('f.'+i.id,i.value))});
 if(S.get('f.b_date',null)==null||S.get('f.b_date')<today)$('b_date').value=today;
 
@@ -422,42 +429,11 @@ function calcDA(){const e=num($('d_elev').value),q=num($('d_qnh').value),t=num($
   $('d_out').innerHTML=ro('Pressure alt',Math.round(pa).toLocaleString('en'),'ft')+ro('ISA dev',(dev>=0?'+':'')+dev.toFixed(1),'°C',dev>15?'warn':null)+ro('Density alt',Math.round(da).toLocaleString('en'),'ft',da-e>2000?'warn':null)}
 ['d_elev','d_qnh','d_oat'].forEach(i=>$(i).addEventListener('input',calcDA));
 
-/* ---------- risk ---------- */
-const IMS=['Illness: any symptoms, even mild','Medication: anything that could affect performance','Stress: significant pressure at work or home','Alcohol: within 8 hours, or still affected','Fatigue: under 8 hours sleep, or tired','Eating: not eaten or not hydrated'];
-const RISK=[
- ['Pilot','Hours on DA40 in last 90 days',[['More than 10',0],['3 to 10',2],['Fewer than 3',4]]],
- ['Pilot','Flight type',[['Dual with instructor',0],['Solo, local circuits',2],['Solo cross-country',4]]],
- ['Pilot','Last flight',[['Within 14 days',0],['15 to 30 days',2],['More than 30 days',4]]],
- ['Aircraft','Open defects or deferred items',[['None',0],['Minor, signed off',2],['Unsure',5]]],
- ['Aircraft','Fuel at landing vs required reserve',[['30+ min extra',0],['Up to 30 min extra',2],['Reserve only',5]]],
- ['Environment','Ceiling vs your minimums',[['1000+ ft above',0],['Within 1000 ft',3],['At or below',6]]],
- ['Environment','Visibility',[['10 km or more',0],['5 to 10 km',3],['Below 5 km',6]]],
- ['Environment','Crosswind vs your limit',[['Under half',0],['Half to limit',3],['Gusts near limit',5]]],
- ['Environment','Meltemi or mountain-wave turbulence',[['None forecast',0],['Moderate winds',2],['Strong / warnings',6]]],
- ['Environment','Over water beyond gliding distance',[['No',0],['Short crossings',2],['Extended crossing',5]]],
- ['Environment','Aerodromes',[['All familiar',0],['One unfamiliar',2],['Unfamiliar and short',4]]],
- ['Environment','Daylight at planned landing',[['More than 1 hour',0],['30 to 60 min',2],['Under 30 min',5]]],
- ['External','Time pressure',[['None',0],['Some',2],['Must arrive on time',4]]],
-];
-let rk=S.get('risk',{});
-$('k_imsafe').innerHTML=IMS.map((t,i)=>`<label class="chk"><input type="checkbox" data-im="${i}" ${rk['im'+i]?'checked':''}><span class="grow">${esc(t)}</span></label>`).join('');
-let cat='';$('k_items').innerHTML=RISK.map(([c,q,o],i)=>{const h=c!==cat?(cat=c,`<h2 style="margin-top:${i?18:0}px">${c}</h2>`):'';
-  return h+`<div class="risk"><span>${esc(q)}</span><select data-rk="${i}" aria-label="${esc(q)}">${o.map(([t,p],j)=>`<option value="${j}" ${(rk['r'+i]||0)==j?'selected':''}>${esc(t)} · ${p}</option>`).join('')}</select></div>`}).join('');
-function score(){let tot=0;RISK.forEach((r,i)=>tot+=r[2][rk['r'+i]||0][1]);const im=IMS.some((_,i)=>rk['im'+i]);const t1=num($('k_t1').value)||11,t2=num($('k_t2').value)||21;
-  let c='good',l='Go',m='Within limits. Brief as normal.';
-  if(tot>=t1){c='warn';l='Caution';m='Talk it through with your instructor and reduce the highest-scoring items first.'}
-  if(tot>=t2){c='bad';l='No-go';m='Do not fly as planned. Change the plan or postpone.'}
-  if(im){c='bad';l='No-go';m='An IMSAFE item is ticked. You are not fit to fly today.'}
-  $('k_total').textContent=tot;$('k_pill').className='pill '+c;$('k_pill').textContent=l;$('k_msg').textContent=m}
-$('v-risk').addEventListener('change',e=>{const t=e.target;if(t.dataset.im!=null)rk['im'+t.dataset.im]=t.checked;else if(t.dataset.rk!=null)rk['r'+t.dataset.rk]=+t.value;else return;S.set('risk',rk);score()});
-['k_t1','k_t2'].forEach(i=>$(i).addEventListener('input',score));
-$('k_reset').onclick=()=>{rk={};S.set('risk',rk);document.querySelectorAll('[data-im]').forEach(b=>b.checked=false);document.querySelectorAll('[data-rk]').forEach(s=>s.value=0);score()};
-
 /* ---------- settings ---------- */
 function keyStat(){const k=S.get('oaipkey','');$('s_keystat').textContent=k?'Key saved ('+k.slice(0,4)+'…). Turn on the openAIP layer from Layers on the map.':'No key saved.'}
 $('s_keysave').onclick=()=>{const k=$('s_key').value.trim();if(!k)return;S.set('oaipkey',k);S.set('lyr_oaip',true);$('s_key').value='';keyStat();if(map)setupOaip()};
 $('s_keyclear').onclick=()=>{S.set('oaipkey','');keyStat();if(map)setupOaip()};
-const BK=['tglog','sess','circ','vrps','route','custom','risk','theme','base'];
+const BK=['tglog','sess','circ','vrps','route','custom','sft10','riskprof','theme','base'];
 $('s_export').onclick=()=>{const o={app:'da40d-efb',v:1,exported:new Date().toISOString()};BK.forEach(k=>o[k]=S.get(k,null));download('efb-backup-'+todayISO()+'.json',JSON.stringify(o,null,1),'application/json');$('s_bstat').textContent='Backup exported. The openAIP key is not included.'};
 $('s_import').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const o=JSON.parse(r.result);if(o.app!=='da40d-efb')throw 0;BK.forEach(k=>{if(o[k]!=null)S.set(k,o[k])});$('s_bstat').textContent='Backup restored. Reloading…';setTimeout(()=>location.reload(),800)}catch(x){$('s_bstat').textContent='That file is not a flight bag backup.'}};r.readAsText(f)};
 
@@ -554,10 +530,10 @@ function restoreOverlays(){const st=S.get('ovl',{});Object.values(st).forEach(o=
 function viewImage(url,w,h,title){cvCur=null;$('cv').hidden=false;$('cv_ovl').hidden=true;$('cv_title').textContent=title;$('cv_sub').textContent='';$('cv_pg').textContent='';$('cv_prev').hidden=$('cv_next').hidden=true;
   if(!cv){cv=L.map('cv_map',{crs:L.CRS.Simple,minZoom:-4,maxZoom:3,zoomSnap:.25,attributionControl:false,zoomControl:false});L.control.zoom({position:'bottomright'}).addTo(cv);cv.on('click',e=>{if(alignState&&alignState.step%2===0)alignChartClick(e.latlng)})}
   if(cvImg)cv.removeLayer(cvImg);const b=[[-h,0],[0,w]];cvImg=L.imageOverlay(url,b).addTo(cv);setTimeout(()=>{cv.invalidateSize();cv.fitBounds(b)},30)}
-window.EFB={feed,FEED,viewImage,getWx,get wpts(){return wpts},legs,S,BY,APTS,NAVAIDS,esc,num,p3,fmtT,go,todayISO,dm,saveRoute,gc,calcNav,
+window.EFB={ends,comps,feed,FEED,viewImage,getWx,get wpts(){return wpts},legs,S,BY,APTS,NAVAIDS,esc,num,p3,fmtT,go,todayISO,dm,saveRoute,gc,calcNav,
   get ownPos(){return window._ownPos||null}};
 /* ---------- boot ---------- */
-renderBrief();drawWind();calcDA();score();keyStat();
+renderBrief();drawWind();calcDA();keyStat();
 route();
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 })();

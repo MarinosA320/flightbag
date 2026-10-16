@@ -139,6 +139,7 @@ async function chartPages(){const SETS=[['swc','Significant weather chart'],['wi
 
 async function build(which){const all=which.includes('all');let h='';const ids=briefIds();
   if(all||which.includes('check'))h+=p1();
+  if(window.RISKM&&(all||which.includes('check')||which.includes('risk')))h+=await window.RISKM.sheet();
   const R=window.ROUTE;
   if(all||which.includes('brief')){h+=await wxDoc(ids);if(R)h+=await R.windDoc(docHead);if(R)h+=R.freqDoc(docHead);h+=await notamDoc(ids);h+=await chartPages()}
   else{if(R&&which.includes('wind'))h+=await R.windDoc(docHead);if(R&&which.includes('freq'))h+=R.freqDoc(docHead)}

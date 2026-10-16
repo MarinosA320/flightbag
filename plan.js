@@ -394,11 +394,11 @@ function perfSheet(){const P=window._lastPerf||(renderPerf(),window._lastPerf);i
    <p class="ps-n">Values from AFM 5.3.7, 5.3.8 and 5.3.11 charts as digitised by DA40 D Flight Bag; each chart's worked example is reproduced within +1 % to +5 %. Grass and slope corrections per AFM notes. Wet or soft surfaces not included. Declared distances: AIP Greece AD 2.13, AMDT 09/26.</p>
    <div class="ps-sig"><span>Student signature</span><span>Instructor signature</span></div></div>`}
 function checklistSheet(){const st=S.get('pp',{t:'dual',c:{}});const L={dual:'Dual training flight',solo:'First / local solo',nav:'Navigation solo'};
-  const items=(window._PP_LISTS||{})[st.t]||[];const rk=S.get('risk',{});
+  const items=(window._PP_LISTS||{})[st.t]||[];
   return `<div class="psheet"><div class="ps-hd"><b>Student Preflight Checklist and Guide</b><span>${L[st.t]||''}</span></div>
    <table class="pt"><tr><th>Full name</th><td>${esc(NL.pic||'')}</td><th>Date</th><td>${esc((NL.date||E.todayISO()).split('-').reverse().join('/'))}</td><th>Aircraft</th><td>${esc(NL.acft||'')}</td><th>Type of flight</th><td>${L[st.t]||''}</td></tr></table>
    <table class="pt">${items.map((x,i)=>`<tr><td style="width:6%">${i+1}</td><td style="text-align:left">${esc(x)}</td><td style="width:8%">${st.c[st.t+i]?'✓':''}</td></tr>`).join('')}</table>
-   <p class="ps-n">Risk assessment: ${esc(document.getElementById('k_total')?document.getElementById('k_total').textContent:'')} points · ${esc(document.getElementById('k_pill')?document.getElementById('k_pill').textContent:'')}</p>
+   <p class="ps-n">Risk assessment (CEA-SFT-10): ${window.RISKM?(()=>{const T=window.RISKM.total();return T.n===16?T.t+' points':'not complete'})():''}</p>
    <p class="ps-n">NOTE</p><div style="border:1px solid #000;height:120px"></div></div>`}
 function printSheets(which){if(window.PACK)window.PACK.open(which)}
 window.addEventListener('afterprint',()=>document.body.classList.remove('packprint'));
