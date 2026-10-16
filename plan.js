@@ -27,6 +27,16 @@ const interp=(t,x)=>{if(x<=t[0][0])return t[0][1];for(let i=1;i<t.length;i++)if(
 let NL=S.get('nl',{});const saveNL=()=>S.set('nl',NL);
 let MB=S.get('mb',{front:'',rear:'',bag:'',fuel:'',trip:''});const saveMB=()=>S.set('mb',MB);
 let FLEET=S.get('fleet',[]);const saveFleet=()=>S.set('fleet',FLEET);
+/* School fleet from "Aircraft Significant Technical Information", Cretan Eagle Aviation, issue 02-10-23 rev. 01 (uncontrolled copy). */
+const SCHOOL_FLEET=[
+ {reg:'F-GZAR',em:'832',arm:'2.410',cap:'106',bagmax:'30',ff:'19',warn:'With this CG arm, ordinary loadings come out forward of the AFM limit. Confirm the empty mass, moment and datum against the aircraft\'s Mass and Balance Report before relying on it.',fpl:{type:'DA40',wtc:'L',equip:'SDY/S',rules:'VFR or IFR',speed:'N0100',endur:'0630',colour:'WHITE WITH RED STRIPES'},oil:'6.0'},
+ {reg:'OE-DQA',em:'837',arm:'2.520',cap:'106',bagmax:'30',ff:'19',fpl:{type:'DA40',wtc:'L',equip:'SDY/S',rules:'VFR or IFR',speed:'N0100',endur:'0630',colour:'WHITE WITH RED STRIPES'},oil:'6.0',warn:'Empty mass and CG marked UPDATE on the school sheet. Confirm against the current Mass and Balance Report.'},
+ {reg:'F-GUVX',em:'796',arm:'2.370',cap:'106',bagmax:'30',ff:'19',warn:'With this CG arm, ordinary loadings come out forward of the AFM limit. Confirm the empty mass, moment and datum against the aircraft\'s Mass and Balance Report before relying on it.',fpl:{type:'DA40',wtc:'L',equip:'SY/S',rules:'VFR ONLY',speed:'N0100',endur:'0630',colour:'WHITE WITH RED STRIPES'},oil:'6.0'}];
+SCHOOL_FLEET.forEach(s=>{s.emom=(num(s.em)*num(s.arm)).toFixed(2);s.src='School sheet 02-10-23 rev. 01'});
+if(!S.get('fleetSeeded',false)){FLEET=[...SCHOOL_FLEET.filter(s=>!FLEET.some(f=>f.reg===s.reg)).map(s=>JSON.parse(JSON.stringify(s))),...FLEET];S.set('fleetSeeded',true);saveFleet()}
+if(!NL.acft&&FLEET[0]){NL.acft=FLEET[0].reg}
+if(!NL.ff){const a0=FLEET.find(f=>f.reg===NL.acft);if(a0&&a0.ff)NL.ff=a0.ff}
+saveNL();
 const acft=()=>FLEET.find(f=>f.reg===NL.acft)||FLEET[0]||null;
 
 /* ---------- navlog: exact replica of CEA-OPS-06, editable on screen and printed as-is ---------- */
@@ -116,7 +126,7 @@ function commAuto(st){const f=(a,t)=>{const x=a.freqs.find(q=>q[0]===t);return x
     return {id,ATIS:f(a,'ATIS'),TWR:f(a,'TWR')||f(a,'AFIS')||f(a,'INFO'),APP:f(a,'APP'),VORid:v?v[0]:'',VOR:v?v[3]:'',ADF:n?(n[3]+(n[0]?' '+n[0]:'')):''}})}
 /* events */
 $('cea').addEventListener('change',e=>{const t=e.target;const v=t.value;
-  if(t.id==='cea_acft'){NL.acft=v;saveNL();return}
+  if(t.id==='cea_acft'){NL.acft=v;const f=FLEET.find(x=>x.reg===v);if(f&&f.ff){NL.ff=f.ff;$('nl_ff').value=f.ff}saveNL();E.calcNav();return}
   if(t.dataset.f){const i=+t.closest('tr').dataset.i;const w=E.wpts[i];if(!w)return;w[t.dataset.f]=(t.dataset.d!=null&&v.trim()===t.dataset.d)?'':v.trim();E.saveRoute();E.calcNav();return}
   if(t.dataset.a){NL.atis[t.dataset.a]=v;saveNL();return}
   if(t.dataset.c){NL.comm[t.dataset.c]=v;saveNL();return}
@@ -187,7 +197,7 @@ function renderMB(){
      <label>Baggage kg<input id="mb_bag" inputmode="decimal" value="${esc(MB.bag)}"></label>
      <label>Usable fuel L<input id="mb_fuel" inputmode="decimal" value="${esc(MB.fuel)}" placeholder="${isFinite(capL)?'max '+capL:''}"></label>
     </div>
-    ${all.length?`<ul class="errs">${all.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`:''}
+    ${a.warn?`<p><span class="pill warn">Check</span> ${esc(a.warn)}</p>`:''}${all.length?`<ul class="errs">${all.map(e=>`<li>${esc(e)}</li>`).join('')}</ul>`:''}
     <div class="row" style="gap:16px;flex-wrap:wrap">
      <label style="max-width:180px">Trip fuel L (landing)<input id="mb_trip" inputmode="decimal" value="${esc(MB.trip)}" placeholder="${tripAuto?'navlog: '+tripAuto:''}"></label>
      ${tripAuto&&!MB.trip?`<button type="button" id="mb_usetrip">Use navlog trip fuel (${tripAuto} L)</button>`:''}
@@ -244,23 +254,29 @@ function afmDiagram(pts){
   </svg>`;
 }
 $('ac_mb').addEventListener('input',e=>{const id=e.target.id;if(!id||!id.startsWith('mb_')||id==='mb_acft')return;MB[id.slice(3)]=e.target.value;saveMB();clearTimeout(renderMB._t);renderMB._t=setTimeout(()=>{const f=document.activeElement&&document.activeElement.id;renderMB();if(f&&$(f)){$(f).focus();const v=$(f).value;try{$(f).setSelectionRange(v.length,v.length)}catch(x){}}},500)});
-$('ac_mb').addEventListener('change',e=>{if(e.target.id==='mb_acft'){NL.acft=e.target.value;saveNL();renderMB()}});
+$('ac_mb').addEventListener('change',e=>{if(e.target.id==='mb_acft'){NL.acft=e.target.value;const f=FLEET.find(x=>x.reg===NL.acft);if(f&&f.ff)NL.ff=f.ff;saveNL();renderMB()}});
 $('ac_mb').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;if(b.id==='mb_print'){window.print();return}if(b.dataset.go)tab(b.dataset.go);if(b.id==='mb_usetrip'){MB.trip=(NL._route*num(NL.ff)/60).toFixed(1);saveMB();renderMB()}});
 
 /* ---------- fleet ---------- */
 function renderFleet(){
-  $('ac_fleet').innerHTML=`<div class="card"><h2>Fleet</h2><p class="sub">Enter each aircraft from its current Mass and Balance Report. Stored on this device; use Settings → Backup to copy to other devices.</p>
-   <div class="tbl"><table><thead><tr><th>Reg</th><th>Empty mass kg</th><th>Empty moment kgm</th><th>Empty CG m</th><th>Usable fuel L</th><th>Max baggage kg</th><th></th></tr></thead><tbody>
-   ${FLEET.map((f,i)=>`<tr><td><input data-x="reg" data-i="${i}" value="${esc(f.reg)}"></td><td><input data-x="em" data-i="${i}" value="${esc(f.em)}" inputmode="decimal"></td><td><input data-x="emom" data-i="${i}" value="${esc(f.emom)}" inputmode="decimal"></td><td>${isFinite(num(f.emom)/num(f.em))?(num(f.emom)/num(f.em)).toFixed(3):'—'}</td><td><input data-x="cap" data-i="${i}" value="${esc(f.cap||'')}" inputmode="decimal" placeholder="from AFM"></td><td><input data-x="bagmax" data-i="${i}" value="${esc(f.bagmax||'')}" inputmode="decimal" placeholder="from AFM"></td><td><button type="button" class="x" data-del="${i}" aria-label="Delete aircraft">×</button></td></tr>`).join('')||'<tr><td colspan="7" class="wrap" style="color:var(--muted)">No aircraft yet.</td></tr>'}
+  $('ac_fleet').innerHTML=`<div class="card"><h2>Fleet</h2><p class="sub">From the school's Aircraft Significant Technical Information sheet (issue 02-10-23, rev. 01). Empty moment = empty mass × CG arm. Edit any value to match the aircraft's current Mass and Balance Report.</p>
+   <div class="tbl"><table><thead><tr><th>Reg</th><th>Basic empty mass kg</th><th>CG arm m</th><th>Moment kgm</th><th>Usable fuel L</th><th>Max baggage kg</th><th>Fuel flow L/h</th><th></th></tr></thead><tbody>
+   ${FLEET.map((f,i)=>{const arm=num(f.arm)||num(f.emom)/num(f.em);return `<tr><td><input data-x="reg" data-i="${i}" value="${esc(f.reg)}" style="min-width:90px"></td><td><input data-x="em" data-i="${i}" value="${esc(f.em)}" inputmode="decimal"></td><td><input data-x="arm" data-i="${i}" value="${esc(f.arm||(isFinite(arm)?arm.toFixed(3):''))}" inputmode="decimal"></td><td>${isFinite(num(f.emom))?num(f.emom).toFixed(2):'—'}</td><td><input data-x="cap" data-i="${i}" value="${esc(f.cap||'')}" inputmode="decimal"></td><td><input data-x="bagmax" data-i="${i}" value="${esc(f.bagmax||'')}" inputmode="decimal"></td><td><input data-x="ff" data-i="${i}" value="${esc(f.ff||'')}" inputmode="decimal"></td><td><button type="button" class="x" data-del="${i}" aria-label="Delete aircraft">×</button></td></tr>
+     ${f.warn?`<tr><td colspan="8" class="wrap"><span class="pill warn">Check</span> ${esc(f.warn)}</td></tr>`:''}`}).join('')||'<tr><td colspan="8" class="wrap" style="color:var(--muted)">No aircraft yet.</td></tr>'}
    </tbody></table></div>
-   <div class="row" style="margin-top:10px"><button type="button" class="primary" id="fl_add">Add aircraft</button><button type="button" id="fl_ex">Add AFM example (735 kg / 1820 kgm)</button></div>
-   <p class="sub">The AFM example is for practice only. It is not any real aircraft's weighing.</p></div>`;
+   <div class="row" style="margin-top:10px"><button type="button" class="primary" id="fl_add">Add aircraft</button><button type="button" id="fl_school">Restore school fleet values</button><button type="button" id="fl_ex">Add AFM example (practice)</button></div></div>
+   <div class="card"><h2>Flight plan items</h2><div class="tbl"><table><thead><tr><th>Item 7</th><th>Item 8</th><th>Item 9</th><th>Item 10</th><th>Item 15</th><th>Item 19 E/</th><th>Item 19 A/</th></tr></thead><tbody>
+   ${FLEET.filter(f=>f.fpl).map(f=>`<tr><td><b>${esc(f.reg.replace('-',''))}</b></td><td>${esc(f.fpl.rules)}</td><td>${esc(f.fpl.type)}/${esc(f.fpl.wtc)}</td><td>${esc(f.fpl.equip)}</td><td>${esc(f.fpl.speed)}</td><td>${esc(f.fpl.endur)}</td><td class="wrap">${esc(f.fpl.colour)}</td></tr>`).join('')}
+   </tbody></table></div><p class="sub">Endurance with full fuel ≈ 6 h 30 min, average consumption ≈ 19 L/h (5.0 USG/h) at 60 % power, Jet A-1, max oil 6.0 L.</p></div>`;
 }
-$('ac_fleet').addEventListener('change',e=>{const t=e.target;if(t.dataset.x==null)return;FLEET[+t.dataset.i][t.dataset.x]=t.value.trim().toUpperCase?t.value.trim():t.value;if(t.dataset.x==='reg')FLEET[+t.dataset.i].reg=t.value.trim().toUpperCase();saveFleet();renderFleet();fillHeader()});
+$('ac_fleet').addEventListener('change',e=>{const t=e.target;if(t.dataset.x==null)return;const f=FLEET[+t.dataset.i];const k=t.dataset.x;let v=t.value.trim();if(k==='reg')v=v.toUpperCase();f[k]=v;
+  if((k==='em'||k==='arm')&&isFinite(num(f.em))&&isFinite(num(f.arm)))f.emom=(num(f.em)*num(f.arm)).toFixed(2);
+  if(k==='em'||k==='arm')delete f.warn;saveFleet();renderFleet();if(window.EFB)E.calcNav()});
 $('ac_fleet').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-  if(b.id==='fl_add'){FLEET.push({reg:'SX-',em:'',emom:'',cap:'',bagmax:''});saveFleet();renderFleet()}
-  if(b.id==='fl_ex'){if(!FLEET.some(f=>f.reg==='EXAMPLE')){FLEET.push({reg:'EXAMPLE',em:'735',emom:'1820',cap:'',bagmax:''});saveFleet()}renderFleet();fillHeader()}
-  if(b.dataset.del!=null){const i=+b.dataset.del;if(b.textContent!=='Delete?'){b.textContent='Delete?';setTimeout(()=>{if(b.isConnected)b.textContent='×'},3000);return}FLEET.splice(i,1);saveFleet();renderFleet();fillHeader()}});
+  if(b.id==='fl_add'){FLEET.push({reg:'',em:'',arm:'',emom:'',cap:'106',bagmax:'30',ff:'19'});saveFleet();renderFleet()}
+  if(b.id==='fl_school'){SCHOOL_FLEET.forEach(s=>{const k=FLEET.findIndex(f=>f.reg===s.reg);const c=JSON.parse(JSON.stringify(s));if(k>=0)FLEET[k]=c;else FLEET.push(c)});saveFleet();renderFleet()}
+  if(b.id==='fl_ex'){if(!FLEET.some(f=>f.reg==='EXAMPLE')){FLEET.push({reg:'EXAMPLE',em:'735',arm:'2.476',emom:'1820',cap:'',bagmax:''});saveFleet()}renderFleet()}
+  if(b.dataset.del!=null){const i=+b.dataset.del;if(b.textContent!=='Delete?'){b.textContent='Delete?';setTimeout(()=>{if(b.isConnected)b.textContent='×'},3000);return}FLEET.splice(i,1);saveFleet();renderFleet()}});
 
 /* ---------- performance ---------- */
 let PF=S.get('pf',{});const savePF=()=>S.set('pf',PF);
